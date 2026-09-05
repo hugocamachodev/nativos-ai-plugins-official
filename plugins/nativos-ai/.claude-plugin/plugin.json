@@ -5,8 +5,8 @@
   "author": {
     "name": "Hugo Camacho"
   },
-  "homepage": "https://github.com/NATIVOS-USER/nativos-ai-plugin-official",
-  "repository": "https://github.com/NATIVOS-USER/nativos-ai-plugin-official",
+  "homepage": "https://github.com/NATIVOS-USER/nativos-ai-plugins-official",
+  "repository": "https://github.com/NATIVOS-USER/nativos-ai-plugins-official",
   "license": "MIT",
   "keywords": ["skills", "landing", "scraping", "espanol", "nativos"]
 }
