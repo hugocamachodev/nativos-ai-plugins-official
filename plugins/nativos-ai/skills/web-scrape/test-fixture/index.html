@@ -1,0 +1,13 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Fixture chat</title>
+<style>.sub{display:none}li:hover .sub{display:block}</style></head><body>
+<nav><ul><li><a href="/index.html">Inicio</a>
+  <ul class="sub"><li><a href="/oculta.html">Submenú oculto</a></li></ul></li></ul></nav>
+<h1>Negocio local</h1><p>Texto suficiente para que la página tenga identidad propia y no colapse por el dedupe de contenido, con varias frases de relleno para pasar de los doscientos caracteres que exige la guarda del hash.</p>
+<div class="whatsapp-launcher" style="width:60px;height:60px">Chat</div>
+<script>
+document.querySelector('.whatsapp-launcher').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = 'https://wa.me/5215512345678'; a.textContent = 'Escríbenos';
+  document.body.appendChild(a);
+});
+</script></body></html>

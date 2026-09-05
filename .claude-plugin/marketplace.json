@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "nativos-ai-marketplace",
+  "description": "Skills y herramientas de Nativos AI para Claude Code. Lo que usamos en los videos, listo para instalar.",
+  "owner": {
+    "name": "Hugo Camacho",
+    "url": "https://github.com/NATIVOS-USER"
+  },
+  "plugins": [
+    {
+      "name": "nativos-ai",
+      "description": "Skills de Nativos AI: auditar una landing page y extraer el contenido completo de un sitio para rediseñarlo.",
+      "source": "./plugins/nativos-ai",
+      "category": "productivity"
+    }
+  ]
+}

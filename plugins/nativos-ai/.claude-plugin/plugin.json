@@ -1,0 +1,12 @@
+{
+  "name": "nativos-ai",
+  "description": "Skills de Nativos AI: auditar una landing page y extraer el contenido completo de un sitio para rediseñarlo.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Hugo Camacho"
+  },
+  "homepage": "https://github.com/NATIVOS-USER/nativos-ai-plugin-official",
+  "repository": "https://github.com/NATIVOS-USER/nativos-ai-plugin-official",
+  "license": "MIT",
+  "keywords": ["skills", "landing", "scraping", "espanol", "nativos"]
+}
