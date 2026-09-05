@@ -16,6 +16,26 @@ Listo. No tienes que descargar nada ni tocar ninguna carpeta.
 
 ## Qué trae
 
+### 🩺 Checkup de tu sitio antes de publicarlo
+
+Recorre todas tus páginas y te dice qué está roto, qué te falta y qué solo puedes
+hacer tú. Encuentra lo que de verdad tumba un sitio: el `noindex` que se quedó del
+desarrollo y te deja invisible en Google, enlaces que no llevan a ningún lado,
+formularios que no mandan nada, "Lorem ipsum" en producción, fotos sin comprimir.
+Y también robots.txt, sitemap, página 404, títulos únicos, texto en las imágenes y
+la etiqueta de Analytics. Si tienes el código a la mano, te ofrece arreglarlo.
+
+Entiende qué tipo de negocio tienes: no te va a pedir un mapa si no tienes local,
+ni migajas de pan si tu sitio es de una sola página.
+
+**Solo díselo con tus palabras:**
+
+> revisa mi sitio antes de publicarlo
+>
+> ¿qué me falta antes de lanzar?
+>
+> hazle un checkup a mi página
+
 ### 🔍 Auditar una landing page
 
 Revisa tu página y te dice, con evidencia, qué funciona y qué no: si el mensaje se
