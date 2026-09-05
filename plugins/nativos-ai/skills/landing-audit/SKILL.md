@@ -3,8 +3,11 @@ name: landing-audit
 description: Audit a finished landing page against evidence — or, if there is no page yet, spec the components it needs. Finds and renders the real build (a single mega-HTML with inline CSS/JS, or a Next/Vite/Astro/CRA/Nuxt project that must be built first), runs 12 objectively-checkable core checks in a headless browser at two viewports, and reports in plain language what works and what does not. Recommends rather than dictates, and speaks firmly only where the visitor genuinely cannot convert. Use whenever someone has built or is building a landing page and wants to know whether it works — "revisa mi landing", "audita esta página", "¿por qué no convierte?", "¿está bien hecha mi landing page?", "mejora mi landing", "qué le falta a mi página", "arma la estructura de una landing", "review my landing page", "why isn't this page converting" — even if they only paste a URL or point at a folder. NOT for general accessibility sweeps of a whole app, NOT for app screens behind a login, NOT for writing the marketing copy itself.
 ---
 
-> **Rutas:** `${CLAUDE_PLUGIN_ROOT}` apunta a la carpeta del plugin instalado. Si sale
-> vacía, los scripts están en `scripts/`, junto a este SKILL.md — usa esa ruta y sigue.
+> **Rutas:** `${CLAUDE_PLUGIN_ROOT}` apunta a la carpeta del plugin instalado. Nunca uses
+> rutas relativas: Bash corre desde el proyecto del usuario, no desde el skill. Si la
+> variable llega vacía, el plugin está en
+> `~/.claude/plugins/cache/nativos-ai-marketplace/nativos-ai/<version>/` — encuéntralo con
+> un `ls` de esa carpeta y usa la ruta absoluta que salga.
 
 
 ## Brevity mandate (non-negotiable)
@@ -43,7 +46,7 @@ report defect.
 
 **2 · Resolve what to render.** `references/build-detection.md`.
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/detect-build.mjs --project <dir>
+node "${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/detect-build.mjs" --project <dir>
 ```
 Returns the plan as JSON. Honour it: `ask-install` means **ask** (`references/deps.md`),
 `require-url` means the page is a page-builder export, `ask` means never guess.
@@ -55,9 +58,9 @@ end is mandatory.**
 *Path B, preferido cuando hay Chrome instalado (el script lo busca solo)* — one command, and it is the only
 path that can emulate JS-off and reduced-motion:
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/audit-cdp.mjs \
+node "${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/audit-cdp.mjs" \
   --url <url> --dump-html /tmp/landing-audit/rendered.html > /tmp/landing-audit/report.json
-node ${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/extract.mjs --digest < /tmp/landing-audit/report.json
+node "${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/extract.mjs" --digest < /tmp/landing-audit/report.json
 ```
 
 *Path A, MCP* — `browser_navigate` → `browser_resize` to 1920×1080 then 390×844 →
@@ -75,10 +78,10 @@ themselves — `a11y_scanner.py` takes a path, and the others' `--url` uses `url
 which on any SPA scores an empty shell. So point all three at the dump from step 3,
 **never at the repo and never with `--url`**:
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/a11y_scanner.py /tmp/landing-audit/rendered.html --json
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/conversion_audit.py --file /tmp/landing-audit/rendered.html --json
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/seo_checker.py --file /tmp/landing-audit/rendered.html --json
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/contrast_checker.py "#fg" "#bg" --suggest "#fg" --json
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/a11y_scanner.py" /tmp/landing-audit/rendered.html --json
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/conversion_audit.py" --file /tmp/landing-audit/rendered.html --json
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/seo_checker.py" --file /tmp/landing-audit/rendered.html --json
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/contrast_checker.py" "#fg" "#bg" --suggest "#fg" --json
 ```
 
 **6 · Judge.** `references/checks-dom.md` and `references/checks-render.md`. The

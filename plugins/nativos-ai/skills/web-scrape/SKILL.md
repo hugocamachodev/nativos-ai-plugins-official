@@ -11,8 +11,11 @@ description: >
   input for "ahora hazme esto bonito".
 ---
 
-> **Rutas:** `${CLAUDE_PLUGIN_ROOT}` apunta a la carpeta del plugin instalado. Si sale
-> vacía, los scripts están en `scripts/`, junto a este SKILL.md — usa esa ruta y sigue.
+> **Rutas:** `${CLAUDE_PLUGIN_ROOT}` apunta a la carpeta del plugin instalado. Nunca uses
+> rutas relativas: Bash corre desde el proyecto del usuario, no desde el skill. Si la
+> variable llega vacía, el plugin está en
+> `~/.claude/plugins/cache/nativos-ai-marketplace/nativos-ai/<version>/` — encuéntralo con
+> un `ls` de esa carpeta y usa la ruta absoluta que salga.
 
 
 # Web scrape para rediseño
@@ -22,7 +25,7 @@ Saca **todo** el contenido de un sitio para poder reconstruirlo: las fotos reale
 ## Cómo se ejecuta
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/skills/web-scrape/scripts/crawl.mjs <url> [--max-pages N] [--out DIR]
+node "${CLAUDE_PLUGIN_ROOT}/skills/web-scrape/scripts/crawl.mjs" <url> [--max-pages N] [--out DIR]
 ```
 
 - `--max-pages` — tope de páginas **únicas** (default 60). Los duplicados por contenido no gastan cupo. Si el crawl se corta por el tope, sale un aviso y se puede subir: el costo es tiempo de script, no de modelo.
@@ -36,7 +39,7 @@ Corre headless: no abre ninguna ventana. Tarda ~9s por página, así que entre 3
   `${CLAUDE_PLUGIN_ROOT}/skills/web-scrape/scripts/node_modules`, corre esto una sola vez y
   sigue adelante — tarda un par de minutos y no vuelve a pasar:
   ```bash
-  cd ${CLAUDE_PLUGIN_ROOT}/skills/web-scrape/scripts && npm install && npx playwright install chromium
+  cd "${CLAUDE_PLUGIN_ROOT}/skills/web-scrape/scripts" && npm install && npx playwright install chromium
   ```
   Los navegadores de Playwright viven en `~/Library/Caches/ms-playwright`, fuera del plugin, por
   eso hacen falta los dos comandos. No le pidas al usuario que abra una terminal ni le expliques qué es npm.

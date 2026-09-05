@@ -31,8 +31,9 @@ first. A fresh clone cannot build without it. Say this:
 
 Pick the installer **from the lockfile**, never a default:
 `pnpm-lock.yaml` → `pnpm install` · `yarn.lock` → `yarn install` ·
-`package-lock.json` → `npm ci` · **no lockfile → ask which one they use.**
-Defaulting to npm is a real bug in an existing tool on this machine; do not repeat it.
+`package-lock.json` → `npm ci` · **sin lockfile → `npm install`**, que es lo que trae
+Node de fábrica. Nunca preguntes cuál gestor usa: quien recién empieza no lo sabe, y el
+lockfile ya lo dice. Lo que sí es un bug es asumir npm cuando hay un lockfile de otro.
 
 **2. Lighthouse** — optional, only for the performance number:
 
