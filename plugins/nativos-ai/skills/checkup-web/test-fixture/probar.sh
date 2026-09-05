@@ -18,7 +18,7 @@ PORT="${PORT:-8899}"
 
 # --stop sin argumento mata TODOS los servidores de detect-build de la máquina,
 # incluidos los de otra auditoría que esté corriendo en paralelo. Aquí solo el nuestro.
-limpiar() { kill "${SIMPLE:-}" "${SERVE:-}" 2>/dev/null || true; [ -n "${URL:-}" ] && node "$DETECT" --stop "$URL" >/dev/null 2>&1; rm -f "$HERE"/.scan-*.json "$HERE/.serve.log"; return 0; }
+limpiar() { kill "${SIMPLE:-}" "${SERVE:-}" "${SPA:-}" 2>/dev/null || true; [ -n "${URL:-}" ] && node "$DETECT" --stop "$URL" >/dev/null 2>&1; rm -f "$HERE"/.scan-*.json "$HERE/.serve.log" "$HERE/.spa-rendered.html"; return 0; }
 trap limpiar EXIT
 
 # El sitemap se genera con la url de cada camino: el fixture se sirve en dos puertos
@@ -54,8 +54,17 @@ sitemap_para "$URL"
 node "$SCAN" --url "$URL" 2>/dev/null > "$HERE/.scan-fallback.json"
 node "$DETECT" --stop "$URL" >/dev/null 2>&1 || true; kill $SERVE 2>/dev/null || true
 
-python3 - "$HERE/.scan-simple.json" "$HERE/.scan-fallback.json" <<'ENDPY'
-import json, sys
+# --- camino SPA: el HTML servido no trae contenido, hay que renderizar ---
+python3 -m http.server "$((PORT + 2))" --directory "$HERE/spa" >/dev/null 2>&1 &
+SPA=$!
+for _ in $(seq 1 20); do curl -sf "http://localhost:$((PORT + 2))/" >/dev/null 2>&1 && break; done
+node "$SCAN" --url "http://localhost:$((PORT + 2))/" 2>/dev/null > "$HERE/.scan-spa.json"
+node "$HERE/../../landing-audit/scripts/audit-cdp.mjs" --url "http://localhost:$((PORT + 2))/" \
+  --dump-html "$HERE/.spa-rendered.html" >/dev/null 2>&1 || true
+kill "$SPA" 2>/dev/null || true; SPA=""
+
+python3 - "$HERE/.scan-simple.json" "$HERE/.scan-fallback.json" "$HERE/.scan-spa.json" "$HERE/.spa-rendered.html" <<'ENDPY'
+import json, sys, os
 
 def revisar(ruta, camino):
     d = json.load(open(ruta)); s, c = d['site'], d['cross']
@@ -106,8 +115,29 @@ for ruta, camino in [(sys.argv[1], 'simple'), (sys.argv[2], 'fallback')]:
     total_fallos += [f'{camino}: {x}' for x in f]; total += n
     print()
 
+# --- cascarón de SPA ---
+# Sin renderizar no hay nada que juzgar, y el riesgo no es solo quedarse corto: un
+# framework guarda plantillas HTML dentro de strings de JavaScript, así que leer la
+# estructura del crudo inventa encabezados e imágenes que no están en la página.
+d = json.load(open(sys.argv[3])); pg = d['pages'][0]
+rendered = open(sys.argv[4]).read() if os.path.exists(sys.argv[4]) else ''
+spa = {
+    'cascaron detectado':        pg['signals']['looksLikeEmptyShell'] is True,
+    'sin encabezados fantasma':  pg['h1'] == [] and pg['headings'] == [],
+    'sin imagenes fantasma':     pg['images'] == [],
+    'sin enlaces fantasma':      pg['links'] == [],
+    'title y descripcion si':    bool(pg['title']) and bool(pg['metaDescription']),
+    'audit-cdp trae el contenido': '<h1' in rendered and 'IMG_9087' in rendered,
+}
+print('--- camino spa (cascaron que hay que renderizar)')
+for k, v in spa.items():
+    print(('  ok    ' if v else '  FALLA ') + k)
+total += len(spa)
+total_fallos += [f'spa: {k}' for k, v in spa.items() if not v]
+print()
+
 if total_fallos:
     for f in total_fallos: print('FALLA -', f)
     print(f'\n{len(total_fallos)} de {total} fallaron'); sys.exit(1)
-print(f'{total}/{total} — el escaneo ve los defectos por los dos caminos')
+print(f'{total}/{total} — el escaneo ve los defectos por los tres caminos')
 ENDPY

@@ -69,7 +69,17 @@ async function get(url, method = 'GET') {
 // Regex y no un parser DOM porque el skill corre en la máquina del estudiante sin
 // instalar nada. Es suficiente: todo lo que se busca aquí vive en atributos y
 // etiquetas de nivel superior, no en estructura anidada.
-const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ntilde: 'ñ', Ntilde: 'Ñ' };
+// Un sitio en español está lleno de &iacute; y &ntilde;. Sin esta tabla, el reporte
+// cita títulos como "Aqu&iacute; tu remodelaci&oacute;n" y pierde toda credibilidad.
+const ENTITIES = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', shy: '', middot: '·',
+  aacute: 'á', eacute: 'é', iacute: 'í', oacute: 'ó', uacute: 'ú', ntilde: 'ñ', uuml: 'ü',
+  Aacute: 'Á', Eacute: 'É', Iacute: 'Í', Oacute: 'Ó', Uacute: 'Ú', Ntilde: 'Ñ', Uuml: 'Ü',
+  agrave: 'à', egrave: 'è', ccedil: 'ç', ordm: 'º', ordf: 'ª', deg: '°',
+  iquest: '¿', iexcl: '¡', laquo: '«', raquo: '»', hellip: '…', mdash: '—', ndash: '–',
+  lsquo: '\u2018', rsquo: '\u2019', ldquo: '\u201C', rdquo: '\u201D',
+  euro: '€', pound: '£', copy: '©', reg: '®', trade: '™', times: '×', bull: '•',
+};
 // Sin esto, un alt "T&amp;M" se reporta como «T&amp;amp;M» y un href con &amp;amp; se
 // convierte en un falso enlace roto.
 const decode = (t) => (t || '').replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, e) => {
@@ -105,13 +115,21 @@ const PLACEHOLDERS = [
   [/\[(tu|your|nombre|name|texto)[^\]]*\]/i, 'Marcador entre corchetes'],
 ];
 
-function parsePage(url, html) {
+function parsePage(url, rawHtml) {
+  // Un framework guarda plantillas HTML dentro de strings de JavaScript. Leer la
+  // estructura sobre el HTML crudo inventa encabezados, imágenes y enlaces que no
+  // existen en la página. El JSON-LD y las señales de terceros sí viven en <script>,
+  // así que esos se leen del crudo y todo lo demás del HTML sin scripts.
+  const html = rawHtml
+    .replace(/<script\b(?![^>]*application\/ld\+json)[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ');
   const head = (html.match(/<head\b[^>]*>([\s\S]*?)<\/head>/i) || [, html])[1];
   const titleM = head.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
 
   const headings = [];
   for (const m of html.matchAll(/<h([1-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi)) {
-    headings.push({ level: Number(m[1]), text: strip(m[2].replace(/<[^>]+>/g, '')).slice(0, 90) });
+    headings.push({ level: Number(m[1]), text: strip(m[2].replace(/<[^>]+>/g, ' ')).slice(0, 90) });
   }
 
   // next/image y los CDN de imagen sirven /_next/image?url=%2Ffotos%2FIMG_1234.jpg,
@@ -189,7 +207,7 @@ function parsePage(url, html) {
   }
 
   const jsonLd = [];
-  for (const m of html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+  for (const m of rawHtml.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
     try {
       const parsed = JSON.parse(m[1].trim());
       for (const node of [].concat(parsed['@graph'] || parsed)) {
@@ -198,8 +216,10 @@ function parsePage(url, html) {
     } catch { jsonLd.push('__json-invalido__'); }
   }
 
-  const text = strip(html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' '));
-  const placeholders = PLACEHOLDERS.filter(([re]) => re.test(text) || re.test(html)).map(([, label]) => label);
+  const text = strip(html.replace(/<[^>]+>/g, ' '));
+  // El texto de plantilla también se cuela en los datos que alimentan la página, así
+  // que aquí sí se mira el crudo.
+  const placeholders = PLACEHOLDERS.filter(([re]) => re.test(text) || re.test(rawHtml)).map(([, label]) => label);
 
   const robotsMeta = metaContent(html, 'robots');
   const canonicalTag = (html.match(/<link\b[^>]*rel\s*=\s*["']?canonical["']?[^>]*>/i) || [])[0];
@@ -228,23 +248,33 @@ function parsePage(url, html) {
     placeholders,
     brokenAnchors: [...new Set(brokenAnchors)],
     wordCount: text.split(/\s+/).filter(Boolean).length,
+    // Un artículo son párrafos largos seguidos; una página de servicios son muchas
+    // secciones cortas. Con las dos cifras, "¿es texto corrido?" deja de ser una
+    // corazonada: ver perfil.md paso 3.
+    parrafos: (() => {
+      const ps = [...html.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
+        .map((m) => strip(m[1].replace(/<[^>]+>/g, ' ')).split(/\s+/).filter(Boolean).length)
+        .filter((n) => n > 0);
+      return { total: ps.length, palabrasPorParrafo: ps.length ? Math.round(ps.reduce((a, b) => a + b, 0) / ps.length) : 0 };
+    })(),
+    secciones: (html.match(/<(section|article)\b/gi) || []).length,
     // Señales que el modelo juzga; nunca son un veredicto por sí solas.
     signals: {
       telLinks: links.filter((h) => h.startsWith('tel:')).length,
       whatsapp: links.some((h) => /wa\.me|api\.whatsapp/i.test(h)),
-      mapEmbed: /google\.com\/maps|maps\.googleapis|openstreetmap|mapbox/i.test(html),
-      shareButton: /sharer\.php|twitter\.com\/intent|linkedin\.com\/shareArticle|navigator\.share|addtoany|share-button/i.test(html),
+      mapEmbed: /google\.com\/maps|maps\.googleapis|openstreetmap|mapbox/i.test(rawHtml),
+      shareButton: /sharer\.php|twitter\.com\/intent|linkedin\.com\/shareArticle|navigator\.share|addtoany|share-button/i.test(rawHtml),
       // position:fixed junto a un tel: es la firma de un CTA fijo en móvil. Señal
       // débil a propósito: la certeza requiere render, y el skill lo dice.
-      fixedBarHint: /(position\s*:\s*fixed|class\s*=\s*["'][^"']*(sticky|fixed|floating)[^"']*["'])/i.test(html),
+      fixedBarHint: /(position\s*:\s*fixed|class\s*=\s*["'][^"']*(sticky|fixed|floating)[^"']*["'])/i.test(rawHtml),
       analytics: [
-        /gtag\(|googletagmanager\.com\/gtag/i.test(html) && 'GA4',
-        /googletagmanager\.com\/gtm|GTM-[A-Z0-9]{4,}/i.test(html) && 'GTM',
-        /fbq\(|connect\.facebook\.net/i.test(html) && 'Meta Pixel',
-        /clarity\.ms/i.test(html) && 'Clarity',
+        /gtag\(|googletagmanager\.com\/gtag/i.test(rawHtml) && 'GA4',
+        /googletagmanager\.com\/gtm|GTM-[A-Z0-9]{4,}/i.test(rawHtml) && 'GTM',
+        /fbq\(|connect\.facebook\.net/i.test(rawHtml) && 'Meta Pixel',
+        /clarity\.ms/i.test(rawHtml) && 'Clarity',
       ].filter(Boolean),
       // La huella de un cascarón de SPA: casi nada de texto y mucho script.
-      looksLikeEmptyShell: text.length < 200 && /<script/i.test(html),
+      looksLikeEmptyShell: text.length < 200 && /<script/i.test(rawHtml),
     },
   };
 }
@@ -358,7 +388,7 @@ async function siteLevel() {
   const sameAsHome = !!homeRes.body && probe.body.trim() === homeRes.body.trim();
   site.notFound = {
     status: probe.status,
-    bytes: probe.body.length,
+    bytes: Buffer.byteLength(probe.body, 'utf8'),
     // Idéntica a la home = el servidor devolvió el fallback, no una página de error.
     isHomeFallback: sameAsHome,
     looksCustom: !sameAsHome && probe.body.length > 700 && /<nav|<header|<footer|<a\s/i.test(probe.body),
@@ -400,8 +430,8 @@ async function crawl(seeds) {
     const page = parsePage(url, r.body);
     page.status = r.status;
     if (DUMP_DIR) {
-      const name = (new URL(url).pathname.replace(/[^\w.-]+/g, '_') || 'index') + '.html';
-      const file = `${DUMP_DIR.replace(/\/$/, '')}/${name.replace(/^_+/, '') || 'index.html'}`;
+      const slug = new URL(url).pathname.replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '');
+      const file = `${DUMP_DIR.replace(/\/$/, '')}/${(slug || 'index').replace(/\.html?$/i, '')}.html`;
       await writeFile(file, r.body);
       page.dumpedTo = file;
     }
@@ -513,16 +543,21 @@ async function weighImages(pages) {
   const out = [];
   for (const [url, onPage] of [...srcs].slice(0, MAX_IMAGES)) {
     const r = await get(url, 'HEAD');
+    const type = r.headers?.get?.('content-type') || null;
     const bytes = Number(r.headers?.get?.('content-length') || 0);
-    out.push({ url, onPage, bytes: bytes || null, type: r.headers?.get?.('content-type') || null, status: r.status });
+    // Mismo fallback que engaña al 404 y a los enlaces: una imagen que no existe
+    // vuelve como el index.html con 200, y sin esto se reporta "medida y ligerita".
+    // El tipo la delata: ninguna imagen se sirve como text/html.
+    const servedFallback = r.status === 200 && /text\/html/i.test(type || '');
+    out.push({ url, onPage, bytes: servedFallback ? null : (bytes || null), type, status: r.status, servedFallback });
   }
   return {
     measured: out,
     notMeasured: Math.max(0, srcs.size - MAX_IMAGES),
-    broken: out.filter((i) => i.status === 0 || i.status >= 400),
+    broken: out.filter((i) => i.status === 0 || i.status >= 400 || i.servedFallback),
     remote: [...remote].slice(0, 30),
     // Sin Content-Length no se puede opinar del peso; se dice, no se adivina.
-    unweighable: out.filter((i) => i.status < 400 && !i.bytes).map((i) => i.url),
+    unweighable: out.filter((i) => i.status < 400 && !i.bytes && !i.servedFallback).map((i) => i.url),
   };
 }
 

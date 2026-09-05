@@ -42,6 +42,10 @@ Para servir, dos cosas que el `--help` dice y son fáciles de pasar por alto:
 node ".../detect-build.mjs" --serve <dir> > /tmp/checkup/serve.log 2>&1 &
 ```
 
+El shell termina de inmediato y tu entorno puede anunciar que el comando "terminó":
+no es cierto, el servidor sigue vivo. **Confírmalo con un `curl` a la url del log antes
+de escanear**, en vez de fiarte de ese mensaje.
+
 Y al terminar, **`--stop` con la url del servidor que tú levantaste**:
 
 ```bash
@@ -87,6 +91,11 @@ del hosting. Búscala en el repositorio (`_redirects`, `netlify.toml`, `vercel.j
 `.htaccess`, `next.config`) y juzga con eso. Afirmar "tienes soft 404" o "sí tienes
 404 propia" a partir de un servidor local es inventar.
 
+**El mismo servidor tampoco honra las reglas de redirección.** Si un enlace roto trae
+`servedFallback: true`, contrástalo con esos archivos antes de acusar: una ruta que en
+producción redirige con 301 se ve exactamente igual que una muerta cuando el servidor
+local devuelve la home para todo.
+
 **2 · Perfilar.** `references/perfil.md`. Primero **forma** (una página o varias),
 después **tipo de negocio**. En un one-pager, títulos únicos por página, enlazado
 interno, migajas de pan y paginador son estructuralmente *no aplica* — casi la mitad
@@ -127,15 +136,44 @@ pruebas reales, los hallazgos más caros del checkup — y ninguna sale del esca
 
 | Dónde | Qué buscas |
 |---|---|
-| Archivos de contenido y datos (`lib/data/`, `content/`, `data/`, los `.json` y `.ts` que alimentan la página) | Texto de plantilla que ninguna lista de palabras encuentra: servicios, ciudades o precios de otro negocio que se quedaron del andamio. Un sitio de Coahuila anunciando experiencias de Valle de Bravo pasa limpio por el detector de "Lorem ipsum". Contrasta lo que dice el contenido con el negocio que identificó el perfil. |
-| Comentarios `TODO`, `FIXME`, `placeholder`, `pendiente` | Suelen marcar datos inventados que llegaron a producción: una calificación, un teléfono, un número de reseñas. |
-| Variables de entorno (`.env.example` sin su `.env`, `NEXT_PUBLIC_*`, `VITE_*`) | Si el formulario, el chat o el botón de pago dependen de una variable que no está, en la build se desactivan **en silencio**. El botón se ve perfecto y no manda nada. Confírmalo aquí antes de decir que un formulario funciona o que no. |
+| Archivos de contenido y datos (`lib/data/`, `content/`, `data/`, los `.json` y `.ts` que alimentan la página) **y los `export const metadata`** | Texto de plantilla que ninguna lista de palabras encuentra: servicios, ciudades o precios de otro negocio que se quedaron del andamio. Un sitio de Coahuila anunciando experiencias de Valle de Bravo pasa limpio por el detector de "Lorem ipsum". Contrasta lo que dice el contenido con el negocio que identificó el perfil, y no te quedes en los archivos de datos: en Next y Astro el título, la descripción y las `keywords` son código de ruta, y ahí es donde sobrevive la ciudad equivocada. |
+| Marcas de pendiente | Suelen señalar datos inventados que llegaron a producción: una calificación, un teléfono, un número de reseñas. **Busca con mayúsculas y límites de palabra**, o en un repo en español te ahogas en ruido: `todo` y `pendiente` son palabras corrientes y un grep insensible devuelve decenas de kilobytes de `let pendiente = false` y "todo tipo de asuntos". Dos pasadas: `grep -rnE '\bTODO\b\|\bFIXME\b\|\bHACK\b\|\bXXX\b' src/` (sensible a mayúsculas) y después `grep -rniE 'pendiente de\|provisional\|de momento\|por definir\|placeholder' src/`. |
+| Variables de entorno (`NEXT_PUBLIC_*`, `VITE_*`, `PUBLIC_*`) | La pregunta útil no es "¿falta el `.env`?" —en Vercel o Netlify la variable vive en el panel, no en la carpeta, y decir "te falta el .env" es un regaño, no un hallazgo. La pregunta es **qué hace el código cuando esa variable llega vacía**. Si el resultado es un botón que se ve perfecto y no manda nada (`` `https://wa.me/${telefono \|\| ''}` ``, una rama de envío que el compilador elimina), ese sí es el hallazgo, y hay que decir que se confirma en el panel del hosting. Si dos rutas usan el mismo dato y una avisa mientras la otra falla en silencio, eso también. |
+| `.gitignore` frente a `.env.example` | Si `.env.example` documenta una credencial (`*_SERVICE_ACCOUNT_JSON`, `*_SECRET`, `*_API_KEY`) y `.gitignore` no cubre `.env`, el estudiante que copie el ejemplo va a subir una llave privada a un repositorio público. No es SEO, pero es el error caro que este público comete, y avisarlo cuesta un renglón. |
 
 **Modo solo-código.** Si no se pudo servir el sitio —dijeron que no a instalar, la
-build falla, es un export que necesita url— haz el checkup leyendo el código. Se puede
-juzgar casi todo: títulos y descripciones, encabezados, `alt`, datos estructurados,
-`lang`, `og:image`, política de privacidad, etiqueta de analítica, `robots.ts` y
-`sitemap.ts`, y todo lo de la tabla de arriba. Lo que **no**: enlaces rotos en vivo,
+build falla, es un export que necesita url— haz el checkup leyendo el código.
+
+Lo primero es saber dónde vive cada cosa, que cambia con el framework y es donde se
+atora quien no lo conoce:
+
+| Framework | Título, descripción y `lang` | robots y sitemap |
+|---|---|---|
+| HTML, Vite, Astro estático | `index.html`, y en Astro además el layout `.astro` | archivos en `public/` |
+| Next (App Router) | `export const metadata` en `app/layout.tsx` y en cada `page.tsx`; `lang` en el `<html>` de `layout.tsx` | `app/robots.ts` y `app/sitemap.ts` — si no existen, no se generan |
+| Next (Pages Router) | `next/head` en cada página, `_document.tsx` para `lang` | archivos en `public/` |
+| Nuxt | `nuxt.config` (`app.head`) y `useHead()` por página | módulo o `public/` |
+| WordPress y constructores | No está en el código: lo pone el plugin de SEO | Ajustes del plugin |
+
+Tres cosas más que solo se ven en el código:
+
+- **El `noindex` no vive solo en el `<head>`.** En Next también puede salir de
+  `middleware.ts` o de `headers()` en `next.config.ts`, como `X-Robots-Tag`. Es el
+  hallazgo más caro del bloque 1: míralos los dos antes de dar el sitio por limpio.
+- **Cuenta las páginas de las rutas dinámicas.** `app/blog/[slug]` es un archivo y
+  puede ser cuarenta páginas; salen de `generateStaticParams()` o del archivo de datos
+  que lo alimenta. De ese número dependen la forma del sitio y medio perfil.
+- **Comprueba que los archivos que se declaran existan.** Un `og:image` apuntando a
+  `/og-image.jpg` sin `public/og-image.jpg` es un hallazgo de un `ls`, y es de los más
+  frecuentes.
+
+**La fase 3 no aplica aquí**: `seo_checker.py` necesita un HTML servido y no lo hay.
+Los títulos, las descripciones y los encabezados se leen directamente del código, con
+la tabla de arriba como mapa. No inventes un HTML para dárselo.
+
+Con eso se puede juzgar casi todo: títulos y descripciones, encabezados, `alt`, datos
+estructurados, `lang`, `og:image`, política de privacidad, etiqueta de analítica,
+`robots.ts` y `sitemap.ts`, y todo lo de la tabla de arriba. Lo que **no**: enlaces rotos en vivo,
 qué código devuelve una ruta inexistente, peso real de las imágenes servidas, HTTPS y
 `www`. Eso va a la tabla de no medidos con su motivo. Abre el reporte diciendo que fue
 una revisión del código y no del sitio funcionando — el lector tiene que saber hasta

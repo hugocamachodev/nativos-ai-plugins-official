@@ -56,6 +56,10 @@ Así que:
    existe para que dos corridas del mismo checkup sobre el mismo sitio no den reportes
    distintos. Si dudas, mira si la página se lee como un artículo con una pregunta
    detrás; si no, no se activan.
+   Para desempatar sin corazonadas, mira `parrafos` y `secciones` de esa página: un
+   artículo son pocos párrafos largos seguidos (más de 40 palabras de media); una
+   página de servicios son muchas secciones cortas, aunque sume mil palabras.
+
 2. Cuando se activan, haz **una** pregunta, sobre la página más larga:
    > "¿Qué escribe en Google la persona que debería llegar a esta página?"
 3. Si no hay respuesta, no adivines la intención. Van al bloque 4 con el criterio

@@ -20,7 +20,12 @@ import { tmpdir } from 'node:os'
 
 const BUILD_TIMEOUT_MS = 600_000
 const STATE_DIR = join(tmpdir(), 'landing-audit')
-const REGISTRY = join(STATE_DIR, 'servers.json')  // array: concurrent servers must all be stoppable
+// One file per server, not one shared array. Two --serve starting at the same time
+// used to read the same array and the second write clobbered the first, orphaning a
+// process that --stop <url> could no longer find — measured at 2 in 4 concurrent
+// starts. A file per pid has no read-modify-write, so the race cannot happen.
+const REGISTRY_DIR = join(STATE_DIR, 'servers')
+const LEGACY_REGISTRY = join(STATE_DIR, 'servers.json')
 const OUTPUT_DIRS = ['dist', 'build', 'out', '.output/public', '_site', 'public']
 const BUILDER_MARKERS = [
   ['wp-content', 'WordPress'], ['wp-includes', 'WordPress'],
@@ -217,20 +222,30 @@ function serve(root) {
   server.listen(0, '127.0.0.1', () => {
     const { port } = server.address()
     const info = { url: `http://127.0.0.1:${port}`, pid: process.pid, root }
-    mkdirSync(STATE_DIR, { recursive: true })
-    const live = loadRegistry().filter(s => s.pid !== process.pid && alive(s.pid))
-    writeFileSync(REGISTRY, JSON.stringify([...live, info]))
+    mkdirSync(REGISTRY_DIR, { recursive: true })
+    writeFileSync(join(REGISTRY_DIR, `${process.pid}.json`), JSON.stringify(info))
     console.log(JSON.stringify(info))
     if (process.send) process.send(info)
   })
   const bye = () => {
-    try { writeFileSync(REGISTRY, JSON.stringify(loadRegistry().filter(s => s.pid !== process.pid))) } catch {}
+    try { unlinkSync(join(REGISTRY_DIR, `${process.pid}.json`)) } catch {}
     process.exit(0)
   }
   process.on('SIGTERM', bye); process.on('SIGINT', bye)
 }
 
-const loadRegistry = () => { const r = readJson(REGISTRY); return Array.isArray(r) ? r : [] }
+const loadRegistry = () => {
+  const out = []
+  try {
+    for (const f of readdirSync(REGISTRY_DIR)) {
+      const e = readJson(join(REGISTRY_DIR, f))
+      if (e && e.pid) { alive(e.pid) ? out.push(e) : (() => { try { unlinkSync(join(REGISTRY_DIR, f)) } catch {} })() }
+    }
+  } catch {}
+  const legacy = readJson(LEGACY_REGISTRY)  // servers started before this change
+  if (Array.isArray(legacy)) out.push(...legacy.filter(s => s && s.pid && alive(s.pid)))
+  return out
+}
 const alive = (pid) => { try { process.kill(pid, 0); return true } catch { return false } }
 
 function stop(which) {
@@ -244,7 +259,14 @@ function stop(which) {
     try { process.kill(s.pid, 'SIGTERM'); stopped.push(s) } catch { failed.push({ ...s, reason: 'already gone' }) }
   }
   const remaining = all.filter(s => !targets.includes(s) && alive(s.pid))
-  try { remaining.length ? writeFileSync(REGISTRY, JSON.stringify(remaining)) : unlinkSync(REGISTRY) } catch {}
+  for (const t of targets) { try { unlinkSync(join(REGISTRY_DIR, `${t.pid}.json`)) } catch {} }
+  try {
+    const legacy = readJson(LEGACY_REGISTRY)
+    if (Array.isArray(legacy)) {
+      const left = legacy.filter(s => s && !targets.some(t => t.pid === s.pid))
+      left.length ? writeFileSync(LEGACY_REGISTRY, JSON.stringify(left)) : unlinkSync(LEGACY_REGISTRY)
+    }
+  } catch {}
   console.log(JSON.stringify({ stopped, failed, remaining }, null, 2))
 }
 

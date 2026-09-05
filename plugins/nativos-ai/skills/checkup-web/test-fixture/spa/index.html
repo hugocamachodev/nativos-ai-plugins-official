@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Estudio Vera — Fotografía de producto</title>
+  <meta name="description" content="Fotografía de producto para tiendas en línea. Fondo blanco, ambientadas y video corto, con entrega en cinco días hábiles en Guadalajara.">
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    // Cascarón de SPA: sin JavaScript no hay nada que leer. Es el caso que obliga al
+    // skill a renderizar con audit-cdp.mjs en vez de confiar en el HTML servido.
+    document.getElementById('root').innerHTML = `
+      <h1>Fotografía de producto para tu tienda en línea</h1>
+      <p>Fondo blanco, ambientadas y video corto. Entrega en cinco días hábiles.</p>
+      <img src="IMG_9087.jpg">
+      <a href="#portafolio">Ver portafolio</a>
+      <a href="tel:+523312345678">Llámanos</a>
+      <form><input type="email" name="correo"><button type="submit">Cotizar</button></form>`;
+  </script>
+</body>
+</html>
