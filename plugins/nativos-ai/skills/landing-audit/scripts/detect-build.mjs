@@ -6,7 +6,7 @@
 //   --project <dir>        detect only; print a resolution plan as JSON
 //   --build <dir>          run the resolved production build (600s timeout)
 //   --serve <dir>          serve <dir> on 127.0.0.1:0; prints {url,pid,root}
-//   --stop                 stop the server started by --serve
+//   --stop [url|pid]       stop ALL recorded servers, or just the one named
 //   --json                 machine output (default for --project)
 //
 // Governing rule: the repo is not the page. Everything downstream audits a

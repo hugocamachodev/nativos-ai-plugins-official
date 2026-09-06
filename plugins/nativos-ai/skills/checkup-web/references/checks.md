@@ -11,7 +11,7 @@ dónde cae en el reporte (`references/reporte.md`): 1 = está roto, 2 = te falta
 
 ## Bloque 1 — lo que de verdad está roto
 
-Solo estas seis cosas justifican el tono firme. Todo lo demás se recomienda.
+Solo lo de esta tabla justifica el tono firme. Todo lo demás se recomienda.
 
 | Qué | Dónde mirar | Cómo se juzga |
 |---|---|---|
@@ -104,6 +104,6 @@ Google para llegar a esa página. Sin eso, van al bloque 4 con el criterio expli
 | Resumen de puntos clave | Un TL;DR o 3–5 puntos, **justo después** de esa respuesta, para quien no va a leer todo. |
 | CTA después del primer párrafo | Quien ya se convenció arriba no debería tener que buscar el botón hasta el final. |
 | Jerarquía real | Los H2 son subtemas del H1 y los H3 subtemas de su H2. Se comprueba leyendo solo los encabezados: si de corrido no cuentan la historia de la página, la jerarquía es decorativa. |
-| Preguntas frecuentes | Preguntas que la gente hace de verdad, no rellenos. El marcado `FAQPage` es opcional: **Google retiró los resultados enriquecidos de FAQ el 7 de mayo de 2026** (ya estaban limitados a sitios de gobierno y salud desde 2023), así que el marcado ya no produce la caja en el buscador. No lo prometas. La sección sigue valiendo por el contenido. |
+| Preguntas frecuentes | Preguntas que la gente hace de verdad, no rellenos. El marcado `FAQPage` es opcional: **Google retiró los resultados enriquecidos de FAQ el 7 de mayo de 2026** — como nota en su documentación de datos estructurados, sin anuncio de blog — (ya estaban limitados a sitios de gobierno y salud desde 2023), así que el marcado ya no produce la caja en el buscador. No lo prometas. La sección sigue valiendo por el contenido. |
 | Enlaces al mismo tema | Que la página enlace a las otras del sitio que tratan lo mismo, y que ellas la enlacen de vuelta. |
 | Tablas y listas | Ayudan cuando ordenan algo comparable. **El "máximo 3 por contenido" es un número sin fuente**: se observa cuántas hay y se comenta si estorban la lectura, no se reprueba por contarlas. |

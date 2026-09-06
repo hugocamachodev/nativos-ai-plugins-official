@@ -50,8 +50,9 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/detect-build.mjs" --pro
 ```
 Returns the plan as JSON. Honour it: `ask-install` means **ask** (`references/deps.md`),
 `require-url` means the page is a page-builder export, `ask` means never guess.
-Then `--build <dir>` if needed, and `--serve <dir>` to get a url. **`--stop` at the
-end is mandatory.**
+Then `--build <dir>` if needed, and `--serve <dir>` to get a url. **`--stop <url>` at
+the end is mandatory** — bare `--stop` kills every detect-build server on the machine,
+including a parallel audit's.
 
 **3 · Render and extract.** Two paths; announce which one you used.
 
@@ -62,6 +63,9 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/audit-cdp.mjs" \
   --url <url> --dump-html /tmp/landing-audit/rendered.html > /tmp/landing-audit/report.json
 node "${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/extract.mjs" --digest < /tmp/landing-audit/report.json
 ```
+
+(Two audits at once on the same machine clobber `/tmp/landing-audit` — give each run its
+own dir.)
 
 *Path A, MCP* — `browser_navigate` → `browser_resize` to 1920×1080 then 390×844 →
 `browser_evaluate` with each expression from `EXTRACTORS` in `scripts/extract.mjs`
@@ -102,8 +106,10 @@ judgement never get silently welded together.
 - **No lift promises.** GoodUI: 639 tests, ~67% produced no significant result.
 - **Never install anything without being asked**, and never treat silence as yes.
 - **390×844 is a narrow-viewport proxy, not device emulation.** Disclose it.
-- **Never document a command without running its `--help` first.** Two skills on this
-  machine document flags that do not exist; do not become the third.
+- **Never document a command without running its `--help` first.**
+- `checkup-web`, in this same plugin, depends on `scripts/detect-build.mjs`,
+  `scripts/audit-cdp.mjs`, `scripts/seo_checker.py`, `references/deps.md` and
+  `references/forbidden-numbers.md` — do not rename or move them without updating it.
 
 ## Verify (self-check before finishing)
 
@@ -112,7 +118,7 @@ judgement never get silently welded together.
 - [ ] Every finding names its substrate, and every unmeasured check says why.
 - [ ] No finding outside tier 4 is written in the firm register.
 - [ ] No number in the report appears in `forbidden-numbers.md`.
-- [ ] `detect-build.mjs --stop` was called; no server left listening.
+- [ ] `detect-build.mjs --stop <url>` was called; no server left listening.
 
 ## When to read each bundled file
 
