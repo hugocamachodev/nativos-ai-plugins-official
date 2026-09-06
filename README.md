@@ -8,7 +8,7 @@ Se instala una vez y a partir de ahí te llega todo lo nuevo.
 Abre Claude Code y pega estos dos comandos, uno después del otro:
 
 ```
-/plugin marketplace add NATIVOS-USER/nativos-ai-plugins-official
+/plugin marketplace add hugocamachodev/nativos-ai-plugins-official
 /plugin install nativos-ai@nativos-ai-marketplace
 ```
 
@@ -77,5 +77,5 @@ Cada vez que publiquemos algo, corre esto y ya lo tienes:
 
 ## ¿Te falta algo?
 
-Abre un [issue](https://github.com/NATIVOS-USER/nativos-ai-plugins-official/issues)
+Abre un [issue](https://github.com/hugocamachodev/nativos-ai-plugins-official/issues)
 y cuéntanos qué te gustaría que hiciera Claude por ti.
