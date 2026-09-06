@@ -5,7 +5,7 @@ a static grep answers almost nothing correctly — grepping `transition` over Ta
 or CSS-in-JS is a false-positive generator. Source is read only where the
 initial-vs-hydrated distinction *is* the finding.
 
-Tool: `node $HOME/.claude/skills/landing-audit/scripts/detect-build.mjs --project <dir>`
+Tool: `node "${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/detect-build.mjs" --project <dir>`
 returns the resolution plan as JSON. `--help` documents every flag.
 
 ## Resolution order — first match wins

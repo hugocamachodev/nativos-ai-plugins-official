@@ -124,9 +124,10 @@ Antes de darlo por bueno, pásalo por el validador de Google
 
 ### `FAQPage`
 
-Opcional y **sin prometer nada**: Google retiró los resultados enriquecidos de FAQ el
-7 de mayo de 2026, así que este marcado ya no produce la caja de preguntas en el
-buscador. Sigue siendo válido, no hace daño y algunos sistemas de IA lo leen. La
+Opcional y **sin prometer nada**: Google retiró los resultados enriquecidos de FAQ el 7 de
+mayo de 2026 — como nota en su documentación de datos estructurados —, así que este
+marcado ya no produce la caja de preguntas en el buscador. Sigue siendo válido, no hace
+daño y algunos sistemas de IA lo leen. La
 sección de preguntas frecuentes visible en la página es la que sí vale, con o sin
 marcado.
 

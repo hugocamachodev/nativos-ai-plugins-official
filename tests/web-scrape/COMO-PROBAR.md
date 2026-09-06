@@ -7,9 +7,11 @@
 
 Ninguna de las dos se captura sin la pasada de hover + click.
 
+Se corre desde la raíz del repo — el fixture ya no viaja con el plugin instalado.
+
 ```bash
-cd ${CLAUDE_PLUGIN_ROOT}/skills/web-scrape/test-fixture && python3 -m http.server 8899 &
-node ../scripts/crawl.mjs http://localhost:8899/index.html --max-pages 5 --out /tmp/fixture-out
+cd tests/web-scrape && python3 -m http.server 8899 &
+node ../../plugins/nativos-ai/skills/web-scrape/scripts/crawl.mjs http://localhost:8899/index.html --max-pages 5 --out /tmp/fixture-out
 python3 -c "import json;d=json.load(open('/tmp/fixture-out/data/site.json'));p=d['pages'][0];assert p['contacto']['whatsapp']==['https://wa.me/5215512345678'],'no se capturó el WhatsApp del widget';assert len(d['pages'])==2,'no se siguió el submenú oculto';print('OK')"
 pkill -f 'http.server 8899'
 ```

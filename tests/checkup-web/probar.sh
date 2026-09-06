@@ -9,11 +9,12 @@
 #              un soft-404 que no existe, una 404 propia que no existe, y ningún enlace
 #              roto jamás. Probar solo el camino simple deja ese agujero sin cubrir.
 #
-#   bash test-fixture/probar.sh
+#   bash tests/checkup-web/probar.sh
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-SCAN="$HERE/../scripts/site-scan.mjs"
-DETECT="$HERE/../../landing-audit/scripts/detect-build.mjs"
+SKILLS="$HERE/../../plugins/nativos-ai/skills"
+SCAN="$SKILLS/checkup-web/scripts/site-scan.mjs"
+DETECT="$SKILLS/landing-audit/scripts/detect-build.mjs"
 PORT="${PORT:-8899}"
 
 # --stop sin argumento mata TODOS los servidores de detect-build de la máquina,
@@ -59,7 +60,7 @@ python3 -m http.server "$((PORT + 2))" --directory "$HERE/spa" >/dev/null 2>&1 &
 SPA=$!
 for _ in $(seq 1 20); do curl -sf "http://localhost:$((PORT + 2))/" >/dev/null 2>&1 && break; done
 node "$SCAN" --url "http://localhost:$((PORT + 2))/" --full 2>/dev/null > "$HERE/.scan-spa.json"
-node "$HERE/../../landing-audit/scripts/audit-cdp.mjs" --url "http://localhost:$((PORT + 2))/" \
+node "$SKILLS/landing-audit/scripts/audit-cdp.mjs" --url "http://localhost:$((PORT + 2))/" \
   --dump-html "$HERE/.spa-rendered.html" >/dev/null 2>&1 || true
 kill "$SPA" 2>/dev/null || true; SPA=""
 

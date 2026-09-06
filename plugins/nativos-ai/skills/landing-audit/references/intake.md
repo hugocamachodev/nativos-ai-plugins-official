@@ -35,8 +35,8 @@ mobile layout · contrast · labels and alt text · **tracking tags** · stock v
 photography · reading level.
 
 Asking any of these is a **report defect.** It costs credibility and it displaces a
-question only the owner can answer. Verification greps the generated intake against
-this list; any hit fails.
+question only the owner can answer. Before delivering, check every question you asked
+against this list; any hit is a defect.
 
 ## What a missing answer blocks
 

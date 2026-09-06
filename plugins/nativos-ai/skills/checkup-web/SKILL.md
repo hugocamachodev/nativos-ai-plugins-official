@@ -1,6 +1,6 @@
 ---
 name: checkup-web
-description: Un checkup completo del sitio antes (o después) de publicarlo. Recorre todas las páginas, entiende de qué tipo de negocio es para no exigir lo que no aplica, y reporta lo que está roto, lo que falta y lo que solo el dueño puede hacer. Revisa lo que rompe sitios de verdad — un noindex olvidado del desarrollo, enlaces internos muertos, formularios que no mandan a ningún lado, "Lorem ipsum" en producción, imágenes sin comprimir — además de robots.txt, sitemap, página 404, títulos y descripciones únicas por página, alt en imágenes, datos estructurados, política de privacidad y la etiqueta de Analytics. Si el código está en la carpeta, ofrece arreglar lo seguro. Úsalo siempre que alguien vaya a lanzar un sitio o quiera saber qué le falta — "revisa mi sitio antes de publicarlo", "¿qué me falta antes de lanzar?", "hazle un checkup a mi página", "chécame el SEO técnico", "¿está bien configurado mi sitio?", "me falta algo antes de subirlo", "revisa que no haya links rotos", "check my site before launch" — aunque solo peguen una URL o apunten a una carpeta. NO es para saber por qué una landing no convierte (eso es landing-audit), NO es para extraer el contenido de un sitio (eso es web-scrape).
+description: Un checkup completo del sitio antes (o después) de publicarlo. Recorre todas las páginas, entiende el tipo de negocio para no exigir lo que no aplica, y reporta lo roto, lo que falta y lo que solo el dueño puede hacer. Revisa lo que rompe sitios de verdad — un noindex olvidado del desarrollo, enlaces muertos, formularios que no mandan nada, "Lorem ipsum" en producción — además de robots.txt, sitemap, página 404, títulos únicos, alt en imágenes, datos estructurados, privacidad y Analytics. Si el código está en la carpeta, ofrece arreglar lo seguro. Úsalo siempre que alguien vaya a lanzar un sitio o quiera saber qué le falta — "revisa mi sitio antes de publicarlo", "¿qué me falta antes de lanzar?", "hazle un checkup a mi página", "chécame el SEO técnico", "revisa que no haya links rotos", "check my site before launch" — aunque solo peguen una URL o apunten a una carpeta. NO es para saber por qué una landing no convierte (eso es landing-audit), NO es para extraer el contenido de un sitio (eso es web-scrape).
 ---
 
 > **Rutas:** `${CLAUDE_PLUGIN_ROOT}` apunta a la carpeta del plugin instalado. Nunca uses
@@ -67,6 +67,9 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/checkup-web/scripts/site-scan.mjs" \
   --url <url> --dump-dir /tmp/checkup/html \
   --site-url <dominio-real-si-lo-hay> > /tmp/checkup/scan.json
 ```
+
+(Dos checkups a la vez en la misma máquina se pisan `/tmp/checkup`: dale a cada corrida su
+propia carpeta.)
 
 La salida es un **resumen**: conserva todo lo que se juzga y cambia las listas largas
 —cada enlace, cada imagen, cada encabezado— por conteos y ejemplos. Existe `--full`
