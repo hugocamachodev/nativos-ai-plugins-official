@@ -1,6 +1,6 @@
 ---
 name: checkup-web
-description: Un checkup completo del sitio antes (o después) de publicarlo. Recorre todas las páginas, entiende de qué tipo de negocio es para no exigir lo que no aplica, y reporta lo que está roto, lo que falta y lo que solo el dueño puede hacer. Revisa lo que rompe sitios de verdad — un noindex olvidado del desarrollo, enlaces internos muertos, formularios que no mandan a ningún lado, "Lorem ipsum" en producción, imágenes sin comprimir — además de robots.txt, sitemap, página 404, títulos y descripciones únicas por página, alt en imágenes, datos estructurados, política de privacidad y la etiqueta de Analytics. Si el código está en la carpeta, ofrece arreglar lo seguro. Úsalo siempre que alguien vaya a lanzar un sitio o quiera saber qué le falta — "revisa mi sitio antes de publicarlo", "¿qué me falta antes de lanzar?", "hazle un checkup a mi página", "chécame el SEO técnico", "¿está bien configurado mi sitio?", "me falta algo antes de subirlo", "revisa que no haya links rotos", "check my site before launch" — aunque solo peguen una URL o apunten a una carpeta. NO es para saber por qué una landing no convierte (eso es landing-audit), NO es para extraer el contenido de un sitio (eso es web-scrape).
+description: Revisa un sitio web completo y dice qué está roto, qué falta y qué hay que arreglar antes o después de publicarlo. **Úsalo siempre que alguien**: vaya a subir un sitio o acabe de subirlo · pregunte qué le falta, si ya puede publicar, o si su sitio está bien configurado · pida que le revisen el sitio, la página, el SEO o el SEO técnico · diga que no aparece en Google · pida buscar enlaces rotos, robots.txt, sitemap, página 404, títulos repetidos, texto alternativo en imágenes, datos estructurados, Analytics o Search Console. Así lo van a pedir: "ya casi termino mi página, ¿me la revisas antes de subirla?", "¿qué me falta antes de lanzar?", "hazle un checkup a misitio.com", "chécame el SEO técnico", "revisa mi sitio completo", "no aparezco en Google", "revisa que no haya links rotos", "check my site before launch" — basta con que peguen una URL o apunten a una carpeta, y aunque no usen ninguna de estas palabras. Recorre todas las páginas, entiende de qué tipo de negocio es para no exigir lo que no aplica, y encuentra lo que de verdad tumba un sitio: un noindex olvidado del desarrollo que lo deja invisible en Google, formularios que no mandan nada, "Lorem ipsum" en producción, imágenes sin comprimir. Si tiene el código en la carpeta, ofrece arreglarlo. Para una sola landing y por qué no convierte, usa landing-audit; para extraer el contenido de un sitio ajeno, web-scrape.
 ---
 
 > **Rutas:** `${CLAUDE_PLUGIN_ROOT}` apunta a la carpeta del plugin instalado. Nunca uses
@@ -67,6 +67,16 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/checkup-web/scripts/site-scan.mjs" \
   --url <url> --dump-dir /tmp/checkup/html \
   --site-url <dominio-real-si-lo-hay> > /tmp/checkup/scan.json
 ```
+
+La salida es un **resumen**: conserva todo lo que se juzga y cambia las listas largas
+—cada enlace, cada imagen, cada encabezado— por conteos y ejemplos. Existe `--full`
+con el volcado entero, y en un sitio mediano son **unos 40.000 tokens**: leerlo se come
+media sesión de quien está usando el skill. Úsalo solo redirigido a un archivo, para
+consultar un dato suelto con `grep` o `jq`, nunca para leerlo completo.
+
+Lo mismo vale para todo lo demás: no vuelques el HTML de una página al chat para
+mirarlo. Búscalo con `grep`, o lee el trozo que necesitas. Quien corre este checkup
+tiene una sesión y la va a querer usar para arreglar su sitio, no para leer JSON.
 
 `--dump-dir` guarda el HTML de cada página; la fase 3 lo necesita. `--site-url` es el
 dominio de producción, y solo hace falta cuando revisas la carpeta servida en local:
@@ -203,6 +213,8 @@ espera el sí. El silencio no es un sí.
 ## Guardrails
 
 - **Nunca instales nada sin preguntar**, y el silencio no es un sí.
+- **Cuida el contexto de quien te está usando.** El escaneo resume a propósito; no
+  pidas el volcado completo ni vuelques archivos enteros al chat para inspeccionarlos.
 - Este skill usa scripts y referencias que viven en `landing-audit`, dentro del mismo
   plugin. Si esas rutas no resuelven, el plugin está incompleto: dilo en vez de
   improvisar un sustituto.

@@ -21,6 +21,10 @@ const HELP = `site-scan.mjs — recorre un sitio y reporta observaciones para el
                        Sin esto, https/www/sitemap no se pueden juzgar y se reportan
                        como no medidos en vez de acusar al sitio por correr en local.
   --dump-dir <dir>     guarda el HTML de cada página aquí (para seo_checker.py)
+  --full               volcado completo en vez del resumen. NO lo leas entero: en un
+                       sitio mediano son ~40.000 tokens y se come la sesión de quien
+                       usa el skill. Úsalo solo con > archivo, para consultar un dato
+                       suelto con grep o jq.
   -h, --help           este texto
 
 Salida: JSON en stdout. Progreso en stderr.
@@ -41,6 +45,7 @@ const TIMEOUT = Number(arg('--timeout', 10000));
 const MAX_IMAGES = Number(arg('--max-images', 40));
 const SITE_URL = arg('--site-url', null);
 const DUMP_DIR = arg('--dump-dir', null);
+const FULL = argv.includes('--full');
 
 // Servir la carpeta en localhost es la ruta principal del skill, y en esa ruta el
 // dominio real no existe. Juzgar https, www o el sitemap contra 127.0.0.1 produce
@@ -574,7 +579,7 @@ if (!pages.length) {
 const links = await checkLinks(pages, FALLBACK);
 const images = await weighImages(pages);
 
-console.log(JSON.stringify({
+const salida = {
   scannedAt: new Date().toISOString(),
   site,
   shape: pages.length === 1 ? 'una-pagina' : 'varias-paginas',
@@ -585,4 +590,79 @@ console.log(JSON.stringify({
   cross: crossPage(pages, sitemapUrls),
   links,
   images,
-}, null, 2));
+};
+
+// El volcado completo de un sitio mediano son ~150 KB, o sea unos 40.000 tokens si el
+// modelo lo lee entero: la mitad de la sesión de quien usa el skill, gastada en listas
+// que no se juzgan una por una. El resumen conserva todo lo que se juzga y cambia las
+// listas largas por conteos y ejemplos. Cabe en unos pocos miles de tokens.
+const NADA = { ...site.notFound };
+delete NADA.fallbackBody;
+
+const resumir = (p) => {
+  const sinAlt = p.images.filter((i) => i.alt === null);
+  const saltos = p.headings.filter((h, i) => i && h.level > p.headings[i - 1].level + 1)
+    .map((h, i) => `h${p.headings[p.headings.indexOf(h) - 1].level}→h${h.level}`);
+  const GENERICO = /(IMG[_-]?\d|DSC[_-]?\d|captura|screenshot|whatsapp image|sin.?titulo|untitled|imagen\d|foto\d|final.?final)/i;
+  return {
+    url: p.url, status: p.status, title: p.title, metaDescription: p.metaDescription,
+    canonical: p.canonical, h1: p.h1, noindex: p.noindex, robotsMeta: p.robotsMeta,
+    lang: p.lang, viewportMeta: p.viewportMeta, favicon: p.favicon, ogImage: p.ogImage,
+    jsonLdTypes: p.jsonLdTypes, placeholders: p.placeholders, brokenAnchors: p.brokenAnchors,
+    urlIssues: p.urlIssues, wordCount: p.wordCount, parrafos: p.parrafos, secciones: p.secciones,
+    encabezados: p.headings.map((h) => `h${h.level}`).join(' '),
+    saltosJerarquia: [...new Set(saltos)],
+    imagenes: {
+      total: p.images.length,
+      sinAlt: sinAlt.length,
+      altVacio: p.images.filter((i) => i.alt === '').length,
+      ejemplosSinAlt: sinAlt.slice(0, 5).map((i) => i.nombreReal),
+      nombresGenericos: [...new Set(p.images.filter((i) => GENERICO.test(i.nombreReal)).map((i) => i.nombreReal))].slice(0, 5),
+    },
+    formularios: p.forms.map((f) => ({ destino: f.destino, method: f.method })),
+    enlaces: { total: p.links.length, internos: p.links.filter((h) => !/^(https?:|mailto:|tel:|#)/i.test(h) || h.includes(new URL(p.url).host)).length },
+    signals: p.signals,
+  };
+};
+
+const cross = crossPage(pages, sitemapUrls);
+const resumen = {
+  ...salida,
+  nota: 'Resumen. El volcado completo (listas de cada enlace, imagen y encabezado) sale con --full, y en un sitio mediano son ~40.000 tokens: no lo leas entero.',
+  site: { ...site, notFound: NADA, robotsTxt: { ...site.robotsTxt, body: undefined } },
+  pages: pages.map(resumir),
+  cross: {
+    ...cross,
+    orphans: cross.orphans.slice(0, 15),
+    inSitemapNotReached: cross.inSitemapNotReached.slice(0, 15),
+    reachedNotInSitemap: cross.reachedNotInSitemap.slice(0, 15),
+  },
+  links: { broken: links.broken.slice(0, 25), emptyHrefs: links.emptyHrefs },
+  images: {
+    total: images.measured.length,
+    rotas: images.broken.map((i) => ({ url: i.url, status: i.status, servedFallback: i.servedFallback })),
+    pesadas: images.measured.filter((i) => i.bytes && i.bytes > 500_000)
+      .sort((a, b) => b.bytes - a.bytes).slice(0, 10).map((i) => ({ url: i.url, kb: Math.round(i.bytes / 1024) })),
+    sinPesoDeclarado: images.unweighable.length,
+    remotas: images.remote.length,
+    ejemplosRemotas: images.remote.slice(0, 5),
+    noMedidas: images.notMeasured,
+  },
+};
+
+// Un JSON lleno de null es ruido que el modelo paga por leer. Pero una LISTA VACÍA no
+// es ruido: `h1: []` significa "esta página no tiene H1", que es un hallazgo, y
+// borrarla lo vuelve indistinguible de "no lo miré". Así que se quitan null y cadenas
+// vacías, y se respetan las listas y los booleanos.
+const limpiar = (v) => {
+  if (Array.isArray(v)) return v.map(limpiar).filter((x) => x !== undefined);
+  if (v && typeof v === 'object') {
+    const o = {};
+    for (const [k, val] of Object.entries(v)) { const c = limpiar(val); if (c !== undefined) o[k] = c }
+    return o;
+  }
+  if (v === null || v === '' || v === undefined) return undefined;
+  return v;
+};
+
+console.log(JSON.stringify(FULL ? salida : limpiar(resumen), null, 2));

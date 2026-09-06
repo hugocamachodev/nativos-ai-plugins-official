@@ -18,7 +18,7 @@ PORT="${PORT:-8899}"
 
 # --stop sin argumento mata TODOS los servidores de detect-build de la máquina,
 # incluidos los de otra auditoría que esté corriendo en paralelo. Aquí solo el nuestro.
-limpiar() { kill "${SIMPLE:-}" "${SERVE:-}" "${SPA:-}" 2>/dev/null || true; [ -n "${URL:-}" ] && node "$DETECT" --stop "$URL" >/dev/null 2>&1; rm -f "$HERE"/.scan-*.json "$HERE/.serve.log" "$HERE/.spa-rendered.html"; return 0; }
+limpiar() { kill "${SIMPLE:-}" "${SERVE:-}" "${SPA:-}" 2>/dev/null || true; [ -n "${URL:-}" ] && node "$DETECT" --stop "$URL" >/dev/null 2>&1; kill "$SIMPLE" 2>/dev/null || true; rm -f "$HERE"/.scan-*.json "$HERE/.serve.log" "$HERE/.spa-rendered.html"; return 0; }
 trap limpiar EXIT
 
 # El sitemap se genera con la url de cada camino: el fixture se sirve en dos puertos
@@ -35,8 +35,8 @@ python3 -m http.server "$PORT" --directory "$HERE" >/dev/null 2>&1 &
 SIMPLE=$!
 for _ in $(seq 1 20); do curl -sf "http://localhost:$PORT/index.html" >/dev/null 2>&1 && break; done
 sitemap_para "http://localhost:$PORT"
-node "$SCAN" --url "http://localhost:$PORT/" 2>/dev/null > "$HERE/.scan-simple.json"
-kill "$SIMPLE" 2>/dev/null || true; SIMPLE=""
+node "$SCAN" --url "http://localhost:$PORT/" --full 2>/dev/null > "$HERE/.scan-simple.json"
+PORT2="$PORT"
 
 # --- camino fallback: el mismo servidor que usa el skill ---
 # --serve se queda en primer plano: hay que mandarlo al fondo y leer la url de su salida.
@@ -51,19 +51,25 @@ except Exception: pass' "$HERE/.serve.log" 2>/dev/null || true)"
 done
 [ -n "$URL" ] || { echo "no se pudo servir el fixture"; cat "$HERE/.serve.log"; exit 1; }
 sitemap_para "$URL"
-node "$SCAN" --url "$URL" 2>/dev/null > "$HERE/.scan-fallback.json"
+node "$SCAN" --url "$URL" --full 2>/dev/null > "$HERE/.scan-fallback.json"
 node "$DETECT" --stop "$URL" >/dev/null 2>&1 || true; kill $SERVE 2>/dev/null || true
 
 # --- camino SPA: el HTML servido no trae contenido, hay que renderizar ---
 python3 -m http.server "$((PORT + 2))" --directory "$HERE/spa" >/dev/null 2>&1 &
 SPA=$!
 for _ in $(seq 1 20); do curl -sf "http://localhost:$((PORT + 2))/" >/dev/null 2>&1 && break; done
-node "$SCAN" --url "http://localhost:$((PORT + 2))/" 2>/dev/null > "$HERE/.scan-spa.json"
+node "$SCAN" --url "http://localhost:$((PORT + 2))/" --full 2>/dev/null > "$HERE/.scan-spa.json"
 node "$HERE/../../landing-audit/scripts/audit-cdp.mjs" --url "http://localhost:$((PORT + 2))/" \
   --dump-html "$HERE/.spa-rendered.html" >/dev/null 2>&1 || true
 kill "$SPA" 2>/dev/null || true; SPA=""
 
-python3 - "$HERE/.scan-simple.json" "$HERE/.scan-fallback.json" "$HERE/.scan-spa.json" "$HERE/.spa-rendered.html" <<'ENDPY'
+# El resumen es lo que el skill lee de verdad. El volcado completo de un sitio mediano
+# son ~40.000 tokens: si el default fuera ése, el checkup se comería media sesión del
+# estudiante en la primera orden.
+sitemap_para "http://localhost:$PORT2"
+node "$SCAN" --url "http://localhost:$PORT2/" 2>/dev/null > "$HERE/.scan-resumen.json" || true
+
+python3 - "$HERE/.scan-simple.json" "$HERE/.scan-fallback.json" "$HERE/.scan-spa.json" "$HERE/.spa-rendered.html" "$HERE/.scan-resumen.json" <<'ENDPY'
 import json, sys, os
 
 def revisar(ruta, camino):
@@ -136,8 +142,32 @@ total += len(spa)
 total_fallos += [f'spa: {k}' for k, v in spa.items() if not v]
 print()
 
+# --- el resumen: lo que el skill lee de verdad ---
+import os as _os
+full_sz = _os.path.getsize(sys.argv[1]); res_sz = _os.path.getsize(sys.argv[5])
+r = json.load(open(sys.argv[5]))
+por_url = {p['url'].split('/')[-1] or 'index': p for p in r['pages']}
+resumen = {
+    'no mas grande que el volcado': res_sz <= full_sz,
+    'conserva el noindex':        [k for k, p in por_url.items() if p.get('noindex')] == ['servicios.html'],
+    'conserva la pagina sin H1':  por_url['servicios.html']['h1'] == [],
+    'conserva el salto h2->h4':   por_url['servicios.html']['saltosJerarquia'] == ['h2→h4'],
+    'conserva el enlace roto':    any('precios' in b['url'] for b in r['links']['broken']),
+    'conserva la imagen sin alt': por_url['servicios.html']['imagenes']['sinAlt'] == 1,
+    'conserva la imagen pesada':  len(r['images']['pesadas']) == 1,
+    'conserva el form sin destino': any(f['destino'] == 'no-visible' for p in r['pages'] for f in p.get('formularios', [])),
+    'conserva los duplicados':    len(r['cross']['duplicateTitles']) == 1,
+    'conserva la huerfana':       len(r['cross']['orphans']) == 1,
+}
+print('--- resumen (lo que el skill lee): %d KB vs %d KB del volcado' % (res_sz // 1024, full_sz // 1024))
+for k, v in resumen.items():
+    print(('  ok    ' if v else '  FALLA ') + k)
+total += len(resumen)
+total_fallos += [f'resumen: {k}' for k, v in resumen.items() if not v]
+print()
+
 if total_fallos:
     for f in total_fallos: print('FALLA -', f)
     print(f'\n{len(total_fallos)} de {total} fallaron'); sys.exit(1)
-print(f'{total}/{total} — el escaneo ve los defectos por los tres caminos')
+print(f'{total}/{total} — el escaneo ve los defectos por los tres caminos, y el resumen los conserva')
 ENDPY
