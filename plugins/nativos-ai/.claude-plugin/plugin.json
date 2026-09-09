@@ -1,7 +1,7 @@
 {
   "name": "nativos-ai",
-  "description": "Skills de Nativos AI: revisar un sitio completo antes de publicarlo, auditar una landing page y extraer el contenido de un sitio para rediseñarlo.",
-  "version": "0.2.0",
+  "description": "Skills de Nativos AI: revisar un sitio completo antes de publicarlo, auditar una landing page, extraer el contenido de un sitio para rediseñarlo y construir una landing 3D que se anima con el scroll.",
+  "version": "0.3.0",
   "author": {
     "name": "Hugo Camacho"
   },
@@ -15,6 +15,11 @@
     "checkup",
     "scraping",
     "espanol",
-    "nativos"
+    "nativos",
+    "3d",
+    "three.js",
+    "gsap",
+    "scroll",
+    "react-three-fiber"
   ]
 }
