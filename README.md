@@ -67,6 +67,30 @@ copiar nada a mano.
 La primera vez que lo uses se va a tardar un par de minutos extra preparando
 lo que necesita. Es normal y pasa una sola vez.
 
+### 🚗 Una landing 3D que se anima con el scroll
+
+Te hace una página experimento como las de Apple: un objeto en 3D (un coche, un reloj,
+una zapatilla, lo que sea) en el centro de la pantalla que gira, se acerca y cambia de
+ángulo mientras haces scroll, con títulos gigantes animados, luces que se encienden,
+cifras que cuentan y un selector de color. Pensada para grabar un reel o lucir un
+portfolio en escritorio.
+
+Primero te hace unas preguntas (qué objeto, qué historia, qué tono y colores), te ayuda
+a conseguir un modelo 3D con licencia limpia o usa uno de muestra para empezar ya,
+investiga los datos reales, arma el proyecto y lo revisa sección por sección con
+capturas antes de entregártelo.
+
+**Solo díselo con tus palabras:**
+
+> quiero una página tipo Apple de mi producto
+>
+> hazme una landing 3D de este coche que gire con el scroll
+>
+> quiero una web como la del Porsche para grabar un reel
+
+Crea un proyecto en tu carpeta y descarga unas 300 MB de dependencias la primera vez.
+Te lo avisa antes de hacerlo.
+
 ## Recibir lo nuevo
 
 Cada vez que publiquemos algo, corre esto y ya lo tienes:
