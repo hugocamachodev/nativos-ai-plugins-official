@@ -45,7 +45,7 @@ Otras defensas ya incluidas: el hero pone el título arriba y el objeto abajo; c
 
 ## Textos
 
-- Eyebrow numerado (`01 · Origen`), título de 2 a 5 palabras en mayúsculas visuales, párrafo de 2 o 3 frases con un dato concreto. Los títulos se parten en letras y suben; el ancho de la fuente variable se estira con el scroll.
+- Eyebrow numerado (`01 · Origen`), título de 2 a 5 palabras en mayúsculas visuales, párrafo de 2 o 3 frases con un dato concreto. Los títulos se parten en letras y suben; el ancho de la fuente variable se estira con el scroll. Usa tildes con normalidad (la máscara de la animación lleva aire arriba para que no se recorten) y comprueba una en las capturas.
 - Sin adjetivos huecos. Cada sección debe enseñar algo que el lector no sabía.
 - Palabra fantasma (`ghost`) corta: 2 a 6 caracteres quedan grandes; palabras largas se reducen solas.
 

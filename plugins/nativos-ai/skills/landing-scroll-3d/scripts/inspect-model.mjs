@@ -3,6 +3,7 @@
 import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { MeshoptDecoder } from 'meshoptimizer';
+await MeshoptDecoder.ready; // el WASM del decoder se instancia en segundo plano; sin esperar, decodeGltfBuffer lanza TypeError
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder });
 const doc = await io.read(process.argv[2]);
 const root = doc.getRoot();

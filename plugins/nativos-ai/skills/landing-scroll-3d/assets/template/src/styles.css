@@ -92,7 +92,6 @@ main { position: relative; z-index: 2; pointer-events: none; }
   text-transform: uppercase; margin: 0 0 1.8rem; text-wrap: balance;
 }
 .title .ch { display: inline-block; will-change: transform; }
-.title .word-mask { padding-top: 0.16em; margin-top: -0.16em; } /* la máscara de SplitText recorta los acentos de las mayúsculas si no se le da aire arriba */
 .s--hero .title { font-size: clamp(6rem, 19vw, 24rem); font-stretch: 125%; line-height: 0.82; margin: 0; letter-spacing: -0.03em; }
 .s--hero .copy { max-width: none; width: 100%; align-self: start; padding-top: 11vh; }
 .s--legado .copy { align-self: end; padding-bottom: 6vh; }

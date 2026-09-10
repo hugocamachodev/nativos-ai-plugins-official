@@ -139,6 +139,9 @@ Por captura:
 - El callout toca la pieza que nombra.
 - Las luces están encendidas donde toca (desde la sección con `lights` y `rear` en adelante).
 - No queda texto de la demo.
+- Las tildes de los títulos en mayúsculas (Á, É, Í, Ó, Ú, Ñ) se ven enteras. Si falta alguna,
+  lee «Tildes que desaparecen» en `references/errores-conocidos.md`; no reescribas el
+  título para esquivarlo.
 - Sin errores en consola y sin frames negros persistentes (uno aislado en headless es
   artefacto; si se repite en la misma posición, investiga).
 - El cierre muestra créditos y licencia.

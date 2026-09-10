@@ -191,6 +191,10 @@ export function buildChoreo() {
     if (title) {
       title.textContent = (title.textContent ?? '').normalize('NFC') // tildes descompuestas se partirían en dos spans
       const split = SplitText.create(title, { type: 'words,chars', charsClass: 'ch', mask: 'words' })
+      // La máscara (overflow: clip) mide lo que el line-height apretado del título y la tilde de una mayúscula sobresale
+      // hasta 0,13 em por arriba: sin aire se recorta y «ÓRBITA» se ve «ORBITA». Padding arriba (nada sube más allá de su
+      // sitio final, así que no destapa nada) y margen negativo para no mover la línea. Ver references/errores-conocidos.md.
+      gsap.set(split.masks, { paddingTop: '0.24em', marginTop: '-0.24em' })
       gsap.fromTo(title, { fontStretch: '70%' }, { fontStretch: '130%', ease: 'none', scrollTrigger: { trigger: el, start: 'top bottom', end: 'bottom top', scrub: true } })
       if (i === 0) {
         heroChars = split.chars
