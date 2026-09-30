@@ -91,6 +91,29 @@ capturas antes de entregártelo.
 Crea un proyecto en tu carpeta y descarga unas 300 MB de dependencias la primera vez.
 Te lo avisa antes de hacerlo.
 
+### 🪐 Un cortometraje hecho de esferas 3D
+
+Te hace un corto de cine donde todo, los planetas, las naves, los personajes, el agua y
+hasta las letras, está hecho de miles de esferas brillantes, como el video de «Interstellar
+en esferas». Sale en reel vertical para Instagram y TikTok, que abre pidiendo girar el
+teléfono, y en versión horizontal para YouTube y Facebook, a 60 cuadros por segundo.
+
+Prepara tu computadora aunque nunca hayas programado. Después te entrevista como un
+director (qué historia, qué momentos, qué frases, cuánto dura) y te enseña el guion antes de
+empezar. Prueba el estilo con dos o tres escenas y te manda un video de prueba para que
+veas el ritmo antes del final.
+
+**Solo díselo con tus palabras:**
+
+> hazme un video como el de Interstellar pero de mi película favorita
+>
+> quiero recrear Star Wars con esferas 3D para un reel
+>
+> un corto animado hecho 100% con Claude Code
+
+Instala Node si no lo tienes y descarga unos 90 MB de librerías en la carpeta del proyecto
+(te lo avisa antes). El video sale sin música: se la pones en Instagram, TikTok o YouTube.
+
 ## Recibir lo nuevo
 
 Cada vez que publiquemos algo, corre esto y ya lo tienes:
