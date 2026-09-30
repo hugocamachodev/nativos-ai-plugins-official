@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Video de esferas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&display=block" rel="stylesheet">
+<script type="importmap">
+{ "imports": {
+  "three": "./node_modules/three/build/three.module.js",
+  "three/addons/": "./node_modules/three/examples/jsm/",
+  "three/examples/jsm/": "./node_modules/three/examples/jsm/",
+  "gsap": "./node_modules/gsap/index.js",
+  "gsap/": "./node_modules/gsap/",
+  "postprocessing": "./node_modules/postprocessing/build/index.js",
+  "n8ao": "./node_modules/n8ao/dist/N8AO.js"
+} }
+</script>
+<style>
+  html, body { margin: 0; background: #000; overflow: hidden; }
+  #stage { position: absolute; left: 0; top: 0; overflow: hidden; background: #000; transform-origin: 0 0; }
+  body.reel #stage { width: 1080px; height: 1920px; }
+  body.wide #stage { width: 1920px; height: 1080px; }
+  /* la película es apaisada (1920×1080); en el reel va girada 90° en sentido horario:
+     quien gira el teléfono a la izquierda (antihorario) la ve derecha y a pantalla completa */
+  #film { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+  body.reel #film { transform: translate(1080px, 0) rotate(90deg); }
+  #gl { width: 1920px; height: 1080px; display: block; }
+  #ftext, #itext { position: absolute; inset: 0; pointer-events: none; font-family: Inter, sans-serif; color: #fff; overflow: hidden; }
+  #intro { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  body.wide #intro { display: none; }
+  #gl2 { width: 1080px; height: 1920px; display: block; }
+  #play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font: 300 22px Inter, sans-serif; letter-spacing: .4em; cursor: pointer; background: #000; z-index: 9; }
+  body.render #play { display: none; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="film"><canvas id="gl"></canvas><div id="ftext"></div></div>
+  <div id="intro"><canvas id="gl2"></canvas><div id="itext"></div></div>
+  <div id="play">▶</div>
+</div>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
