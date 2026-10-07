@@ -114,6 +114,28 @@ veas el ritmo antes del final.
 Instala Node si no lo tienes y descarga unos 90 MB de librerías en la carpeta del proyecto
 (te lo avisa antes). El video sale sin música: se la pones en Instagram, TikTok o YouTube.
 
+### ⚡ Planear rápido y ver resultados pronto (quick-plan)
+
+Para landings, sitios, demos y prototipos. Usa lo mejor de superpowers (el brainstorm y los
+subagentes) sin la ceremonia de producción que convierte una página de 40 minutos en una de
+5 horas. Te pregunta por etapas, te propone cuánto investigar con sus pros y contras, arma un
+plan corto por bloques y construye por vueltas: cada vuelta termina en algo que ya puedes ver
+y jugar en el navegador, y con lo que le digas ajusta la siguiente.
+
+Si lo que pides en realidad no es rápido (un CRM, una app con cuentas, login, servidor o
+pagos), te avisa qué implica y te recomienda el flujo completo de superpowers.
+
+**Solo díselo con tus palabras:**
+
+> /quick-plan quiero una landing para mi cafetería
+>
+> modo rápido: hazme un demo de esta idea, no es producción
+>
+> no te pases con la planeación, quiero ver algo pronto
+
+Funciona mejor con el plugin [superpowers](https://github.com/obra/superpowers) instalado,
+pero no lo necesita.
+
 ## Recibir lo nuevo
 
 Cada vez que publiquemos algo, corre esto y ya lo tienes:
