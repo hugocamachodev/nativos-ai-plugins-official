@@ -1,6 +1,6 @@
 ---
 name: checkup-web
-description: Un checkup completo del sitio antes (o después) de publicarlo. Recorre todas las páginas, entiende el tipo de negocio para no exigir lo que no aplica, y reporta lo roto, lo que falta y lo que solo el dueño puede hacer. Revisa lo que rompe sitios de verdad — un noindex olvidado del desarrollo, enlaces muertos, formularios que no mandan nada, "Lorem ipsum" en producción — además de robots.txt, sitemap, página 404, títulos únicos, alt en imágenes, datos estructurados, privacidad y Analytics. Si el código está en la carpeta, ofrece arreglar lo seguro. Úsalo siempre que alguien vaya a lanzar un sitio o quiera saber qué le falta — "revisa mi sitio antes de publicarlo", "¿qué me falta antes de lanzar?", "hazle un checkup a mi página", "chécame el SEO técnico", "revisa que no haya links rotos", "check my site before launch" — aunque solo peguen una URL o apunten a una carpeta. NO es para saber por qué una landing no convierte (eso es landing-audit), NO es para extraer el contenido de un sitio (eso es web-scrape).
+description: Un checkup completo del sitio antes o después de publicarlo. Recorre todas las páginas, entiende el tipo de negocio para no exigir lo que no aplica y reporta lo roto, lo que falta y lo que solo el dueño puede hacer. Revisa lo que rompe sitios de verdad — un noindex olvidado, enlaces muertos, formularios que no mandan nada, "Lorem ipsum" en producción — además de robots.txt, sitemap, página 404, títulos únicos, alt en imágenes, datos estructurados, privacidad y Analytics, y la seguridad básica (claves a la vista, .env, captcha, headers). Si el código está en la carpeta, ofrece arreglar lo seguro. Úsalo siempre que alguien vaya a lanzar un sitio o quiera saber qué le falta — "revisa mi sitio antes de publicarlo", "¿qué me falta antes de lanzar?", "hazle un checkup a mi página", "revisa que no haya links rotos", "¿mi página es segura?" — aunque solo peguen una URL o apunten a una carpeta. NO es para saber por qué una landing no convierte (landing-audit) ni para extraer el contenido de un sitio (web-scrape).
 ---
 
 > **Rutas:** `${CLAUDE_PLUGIN_ROOT}` apunta a la carpeta del plugin instalado. Nunca uses
@@ -152,7 +152,44 @@ pruebas reales, los hallazgos más caros del checkup — y ninguna sale del esca
 | Archivos de contenido y datos (`lib/data/`, `content/`, `data/`, los `.json` y `.ts` que alimentan la página) **y los `export const metadata`** | Texto de plantilla que ninguna lista de palabras encuentra: servicios, ciudades o precios de otro negocio que se quedaron del andamio. Un sitio de Coahuila anunciando experiencias de Valle de Bravo pasa limpio por el detector de "Lorem ipsum". Contrasta lo que dice el contenido con el negocio que identificó el perfil, y no te quedes en los archivos de datos: en Next y Astro el título, la descripción y las `keywords` son código de ruta, y ahí es donde sobrevive la ciudad equivocada. |
 | Marcas de pendiente | Suelen señalar datos inventados que llegaron a producción: una calificación, un teléfono, un número de reseñas. **Busca con mayúsculas y límites de palabra**, o en un repo en español te ahogas en ruido: `todo` y `pendiente` son palabras corrientes y un grep insensible devuelve decenas de kilobytes de `let pendiente = false` y "todo tipo de asuntos". Dos pasadas: `grep -rnE '\bTODO\b\|\bFIXME\b\|\bHACK\b\|\bXXX\b' src/` (sensible a mayúsculas) y después `grep -rniE 'pendiente de\|provisional\|de momento\|por definir\|placeholder' src/`. |
 | Variables de entorno (`NEXT_PUBLIC_*`, `VITE_*`, `PUBLIC_*`) | La pregunta útil no es "¿falta el `.env`?" —en Vercel o Netlify la variable vive en el panel, no en la carpeta, y decir "te falta el .env" es un regaño, no un hallazgo. La pregunta es **qué hace el código cuando esa variable llega vacía**. Si el resultado es un botón que se ve perfecto y no manda nada (`` `https://wa.me/${telefono \|\| ''}` ``, una rama de envío que el compilador elimina), ese sí es el hallazgo, y hay que decir que se confirma en el panel del hosting. Si dos rutas usan el mismo dato y una avisa mientras la otra falla en silencio, eso también. |
-| `.gitignore` frente a `.env.example` | Si `.env.example` documenta una credencial (`*_SERVICE_ACCOUNT_JSON`, `*_SECRET`, `*_API_KEY`) y `.gitignore` no cubre `.env`, el estudiante que copie el ejemplo va a subir una llave privada a un repositorio público. No es SEO, pero es el error caro que este público comete, y avisarlo cuesta un renglón. |
+
+**4.6 · Seguridad.** Para un sitio estático (Vite, React o HTML publicado en Cloudflare
+Workers). Lo del sitio servido ya viene en `seguridad` del escaneo: cadenas con forma de
+llave en el HTML y en el JavaScript que se descarga (`clavesConForma`, siempre
+enmascaradas), servicios y protecciones contra spam que aparecen (`marcas`), un `.env`
+o un `.git` servidos (`archivosExpuestos`) y los headers de seguridad (`headers`, o
+`headersNoMedidos` si se sirvió en local). Con carpeta, cuatro cosas más que solo
+están en el código:
+
+```bash
+# 1 · ¿.env cubierto por .gitignore? Aunque hoy no exista.
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then git check-ignore -q .env && echo cubierto || echo NO-cubierto; else echo no-es-repo; fi
+# 2 · ¿Ya hay un .env dentro de git? Si sale algo, está en el historial.
+git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.example$'
+# 3 · Variables que Vite mete al JS publicado. Mira el NOMBRE y a qué servicio va.
+grep -rnoE '(VITE|NEXT_PUBLIC|PUBLIC|REACT_APP)_[A-Z0-9_]+' . --exclude-dir={node_modules,dist,.git} | sort -u
+# 4 · ¿Existe _headers? En Vite va en public/; sin framework, en la carpeta que publica el Worker.
+ls public/_headers _headers 2>/dev/null
+# 5 · Solo si no se pudo servir y hay dist/: cadenas con forma de llave en lo compilado,
+#     con los mismos prefijos que CLAVES en site-scan.mjs. Sale enmascarado.
+grep -rnoE 'sk-(proj-|ant-)?[A-Za-z0-9_-]{32,}|[rs]k_(live|test)_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{60,}|xox[abprs]-[A-Za-z0-9-]{10,}|SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}|-----BEGIN [A-Z ]*PRIVATE KEY-----|AIza[0-9A-Za-z_-]{35}' dist 2>/dev/null | sed -E 's/^([^:]+:[0-9]+:.{8}).*/\1…/'
+```
+
+`no-es-repo` no es hallazgo: dile que cuando lo haga repositorio, `.gitignore` tiene que
+traer `.env` desde el primer commit.
+
+Cómo se juzga cada cosa está en `checks.md`, sección de seguridad, y lo grave en la
+tabla del bloque 1. Tres reglas que no se negocian:
+
+- **Ninguna clave sale completa en el reporte.** Usa `muestra`; si la viste en el
+  código, cita el archivo y la línea, no el valor.
+- **Hay claves que van a la vista a propósito.** La access key de Web3Forms y la sitekey
+  de hCaptcha están hechas para ir en la página. Una variable que se llame
+  `VITE_WEB3FORMS_KEY` no es un hallazgo: decide por el servicio, no por la palabra `KEY`.
+- **Si una clave secreta ya se publicó, quitarla no basta**: hay que rotarla primero.
+
+En React el formulario no está en el HTML: confirma la protección contra spam en el
+código del formulario (`h-captcha`, `cf-turnstile`, `g-recaptcha`, `botcheck`).
 
 **Modo solo-código.** Si no se pudo servir el sitio —dijeron que no a instalar, la
 build falla, es un export que necesita url— haz el checkup leyendo el código.
@@ -211,6 +248,11 @@ espera el sí. El silencio no es un sí.
   recomienda para URLs nuevas y se dice el costo para las viejas.
 - **No revisa accesibilidad** más allá de `alt` y `lang`. Contraste, foco de teclado,
   etiquetas de formulario y lectores de pantalla son de `landing-audit`.
+- **No es una auditoría de seguridad de una app.** Con login, base de datos o pagos, el
+  bloque de seguridad se queda corto: eso es `/security-review` o el plugin
+  `claude-security`.
+- **No mete el sitio a Google.** Search Console, el sitemap enviado y los ajustes de
+  Cloudflare los guía el skill `ponla-en-google`.
 - **No promete resultados.** Ni conversión, ni posiciones, ni tráfico.
 
 ## Guardrails
@@ -234,6 +276,8 @@ espera el sí. El silencio no es un sí.
 - [ ] Cada hallazgo dice de dónde salió y cada cosa no medida dice por qué.
 - [ ] Fuera del bloque 1, nada está escrito en tono de regaño.
 - [ ] Ningún número del reporte aparece en `forbidden-numbers.md`.
+- [ ] Ninguna clave aparece completa en el reporte, y las públicas a propósito no
+      salen como hallazgo.
 - [ ] Ninguna pregunta del perfil tenía su respuesta en el escaneo.
 - [ ] Ningún hallazgo del bloque 1 salió de un servidor con `isHomeFallback: true`.
 - [ ] Si se usó `detect-build.mjs`, se llamó `--stop <url>` —con la url, no a secas— y
@@ -246,6 +290,6 @@ espera el sí. El silencio no es un sí.
 | `references/perfil.md` | Antes de juzgar nada: qué tipo de sitio es y qué checks se apagan. |
 | `references/checks.md` | Al juzgar cada punto: qué significa, cómo se verifica, cuándo no aplica. |
 | `references/arreglos.md` | Al ofrecer arreglar: plantillas de robots.txt, sitemap, llms.txt, datos estructurados, 404. |
-| `references/manual.md` | Al escribir el bloque 4: Analytics, Search Console, enviar el sitemap. |
+| `references/manual.md` | Al escribir el bloque 4: Analytics, hCaptcha en Web3Forms, reseñas, Business Profile. Search Console apunta a `ponla-en-google`. |
 | `references/reporte.md` | Al escribir el reporte: orden, registro, cómo se dice lo que no se midió. |
 | `landing-audit/references/forbidden-numbers.md` | Antes de que salga cualquier cifra. Siempre. |

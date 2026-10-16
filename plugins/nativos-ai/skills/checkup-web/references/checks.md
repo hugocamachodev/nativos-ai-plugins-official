@@ -22,6 +22,8 @@ Solo lo de esta tabla justifica el tono firme. Todo lo demás se recomienda.
 | **Botones que no llevan a nada** | `links.emptyHrefs` | Un `href="#"` en un botón real es un clic que no hace nada. Algunos son legítimos (abren un menú); mira el contexto antes de contarlo. |
 | **Soft 404** | `site.notFound.soft404`, `measurable` | Una ruta inexistente que responde `200`: Google la trata como página real y la indexa vacía. **Si `measurable` es `false`, no hay hallazgo**: el sitio se sirvió con un servidor de desarrollo que devuelve la home para cualquier ruta, y eso no dice nada del sitio publicado. Búscalo en la configuración del hosting (`_redirects`, `netlify.toml`, `vercel.json`, `.htaccess`). |
 | **Anclas rotas** | `pages[].brokenAnchors` | Un `#seccion` que no corresponde a ningún `id` de la página. En un sitio de una sola página es el enlace roto más probable, y ninguna verificación por código HTTP lo ve. |
+| **Clave secreta a la vista** | `seguridad.clavesConForma`, y en el código la fase 4.6 de SKILL.md | Cualquiera que abra la página puede copiarla y usarla a nombre del dueño. Son secretos los tipos `openai`, `anthropic`, `stripe-secreta`, `aws`, `github`, `slack`, `sendgrid` y `llave-privada`, y cualquier `VITE_*` que guarde una llave de un servicio que cobra. **Quitarla del código no basta**: ya se publicó, así que primero se rota (una nueva en el panel del servicio y se borra la vieja) y después se saca del código. Nunca la cites completa: usa `muestra`. Los tipos que van a la vista a propósito están en la sección de seguridad. |
+| **`.env` publicado o en git** | `seguridad.archivosExpuestos`, y en el código `git ls-files` | Un `/.env` o `/.git/config` que el sitio sirve se descarga como cualquier archivo. Un `.env` que git ya sube vive en el historial aunque lo borres hoy. En los dos casos, mismo remedio que arriba: rotar lo que tenga y después sacarlo. |
 
 ---
 
@@ -66,7 +68,6 @@ Solo lo de esta tabla justifica el tono firme. Todo lo demás se recomienda.
 | Qué | Dónde mirar | Cómo se juzga |
 |---|---|---|
 | Página 404 propia | `site.notFound.looksCustom`, `measurable` | La del servidor es una pared blanca; una propia devuelve al visitante al sitio. **Con `measurable: false` no se puede afirmar ni que la hay ni que no**: el servidor local devolvió la home. Revisa si existe el archivo (`404.html`, `not-found.tsx`, `404.astro`) y la configuración del hosting. |
-| Política de privacidad | Buscar en `pages[].links` y en el pie | **Obligatoria si el sitio recoge cualquier dato** — un formulario, un newsletter, analítica con cookies. En México la LFPDPPP obliga a poner el aviso a la vista en el momento en que se recaban los datos, con multa: para un sitio mexicano con formulario eso no es una recomendación de diseño, y conviene decirlo así. Si no recoge nada, va al bloque 3. Ojo con el caso peor: un enlace "Política de privacidad" con `href="#"`, que promete la política y no la tiene. |
 | Página o estado de gracias | URL con `gracias`/`thank`, o el estado tras enviar | Sirve para dos cosas: confirmarle al visitante que sí llegó, y poder medir cuántos completaron. En un one-pager basta el mensaje de confirmación. |
 | Datos estructurados | `pages[].jsonLdTypes` | El tipo que corresponde al perfil (ver `perfil.md`). `__json-invalido__` significa que el JSON-LD está mal formado y no lo lee nadie — eso sí es bloque 1. |
 | Migajas de pan | `signals`, HTML | Solo con jerarquía real de secciones. En un sitio plano no aportan. |
@@ -78,7 +79,23 @@ Solo lo de esta tabla justifica el tono firme. Todo lo demás se recomienda.
 | Botón de compartir | `signals.shareButton` | Tiene sentido en contenido; en una página de servicios, casi ninguno. |
 | Mapa | `signals.mapEmbed` | Solo negocio local. |
 | Etiqueta de analítica | `signals.analytics` | Presencia de GA4, GTM, Meta Pixel o Clarity. Que la propiedad esté bien configurada y recibiendo datos **no se puede ver desde fuera**: bloque 4. |
-| HTTPS y variante www | `site.https`, `site.wwwVariant` | Si las dos variantes cargan y ninguna redirige a la otra, Google ve dos sitios y reparte la autoridad entre ambos. |
+| HTTPS y variante www | `site.https`, `site.wwwVariant` | Si las dos variantes cargan y ninguna redirige a la otra, Google ve dos sitios y reparte la autoridad entre ambos. No es código: se arregla en Cloudflare, y lo guía el skill `ponla-en-google`. |
+
+### Seguridad — sitio estático (Vite, React o HTML en Cloudflare)
+
+Para una página sin login, sin base de datos y sin pagos. Lo grave (una clave secreta
+a la vista, un `.env` publicado) está en la tabla del bloque 1; aquí va el resto.
+
+| Qué | Dónde mirar | Cómo se juzga |
+|---|---|---|
+| **Claves que van a la vista a propósito** | `seguridad.marcas` (`web3forms`, `hcaptcha`, `turnstile`), `clavesConForma` con tipo `stripe-publicable` | **No es hallazgo.** Dilo en una línea dentro del bloque 1 (ver `reporte.md`), porque quien ve una llave en su código se asusta. La access key de Web3Forms es pública por diseño: su FAQ dice "Access key is public" y que con ella "they can only send you emails". La sitekey de hCaptcha también: "Use the sitekey in your frontend; keep the secret on your server" (docs.hcaptcha.com). Lo que nunca va en la página es la llave *secreta* de cualquier servicio. |
+| Llave de Google (`google-api`) | `clavesConForma` | Maps y Firebase la usan en el navegador a propósito, así que no es bloque 1. Google pide restringirla: "You are financially responsible for charges caused by abuse of unrestricted API keys" (developers.google.com/maps/api-security-best-practices). Bloque 4: que el dueño la restrinja a su dominio en la consola de Google Cloud. |
+| Variables `VITE_*` con un secreto | En el código, fase 4.6 de SKILL.md | Según la doc de Vite, "Variables prefixed with `VITE_` will be exposed in client-side source code after Vite bundling". Si guarda la llave de un servicio que cobra o un SECRET, PRIVATE, PASSWORD o TOKEN, es bloque 1 aunque la página no se haya publicado, porque la próxima build la publica. **`KEY` en el nombre no basta para acusar**: `VITE_WEB3FORMS_KEY` es la access key pública. Decide por el servicio, no por la palabra. |
+| `.env` cubierto por `.gitignore` | `git check-ignore -q .env` (sale 0 si está cubierto) | Se revisa **aunque hoy no exista el `.env`**: el día que alguien cree uno con una llave, el siguiente commit la sube. Bloque 2, dicho con firmeza. `*.local` cubre `.env.local` pero no `.env`. Si `.env.example` documenta una credencial (`*_SECRET`, `*_API_KEY`, `*_SERVICE_ACCOUNT_JSON`), el que copie el ejemplo va a subir una llave privada: mismo hallazgo. |
+| Formulario con protección contra spam | `seguridad.marcas` (`hcaptcha`, `turnstile`, `recaptcha`, `honeypot`); en React, el código del formulario | Sin captcha ni honeypot, un bot puede llenar el formulario una y otra vez y los mensajes reales se pierden entre la basura. Bloque 2. Las marcas se buscan en todo lo que se descargó: dicen que la protección está en el sitio, no en qué formulario. Si hay varios, confírmalo en el código. |
+| hCaptcha activado en el panel de Web3Forms | `marcas` trae `web3forms` y `hcaptcha` | El captcha en la página no basta. Web3Forms: "you need to activate hCaptcha on your form to make it mandatory on each form submissions". Eso solo se ve desde el panel: **bloque 4**, pasos en `manual.md`. |
+| Headers básicos | `seguridad.headers.faltan`; con `headersNoMedidos`, el archivo `_headers` en el código | Bloque 2, como recomendación. Solo tres: `X-Content-Type-Options`, `Referrer-Policy` y `X-Frame-Options`. Van en un archivo `_headers` en `public/` (plantilla en `arreglos.md`), que Workers static assets aplica a lo que sirve. **No pidas `Content-Security-Policy`**: una mal hecha rompe hCaptcha, Web3Forms, Maps o las fuentes, y nadie se da cuenta hasta que deja de llegar un mensaje. `Strict-Transport-Security` y `Permissions-Policy` se mencionan si faltan, sin exigirlas. Si el proyecto corre código propio en el Worker (`run_worker_first`, SSR), `_headers` no aplica a esas respuestas. |
+| Aviso de privacidad | `pages[].links`, el pie y el formulario | Si un formulario pide nombre, correo o teléfono, recoge datos personales. **En México** la LFPDPPP (texto vigente, última reforma DOF 14-11-2025) dice en su artículo 16, fracción II, que cuando los datos se obtienen por un medio electrónico el aviso se da en modalidad simplificada. Esa versión trae al menos lo de las fracciones I a IV del artículo 15 (quién es el responsable y su domicilio, qué datos, para qué y cómo limitar su uso) y dice dónde se consulta el aviso integral. Fuente: diputados.gob.mx/LeyesBiblio/pdf/LFPDPPP.pdf. Para un sitio mexicano con formulario es bloque 2 dicho con firmeza. **Fuera de México no afirmes nada legal**: di que revise la ley de su país. No redactes el aviso como si fuera asesoría legal. Si el sitio no recoge nada, va al bloque 3. Ojo con el peor caso, un enlace "Aviso de privacidad" con `href="#"`. |
 
 ---
 
@@ -86,10 +103,12 @@ Solo lo de esta tabla justifica el tono firme. Todo lo demás se recomienda.
 
 Nada de esto se ve desde fuera. Pasos en `manual.md`.
 
-Search Console conectado y sin errores · propiedad de Analytics recibiendo datos ·
-sitemap enviado a Search Console · que las reseñas sean de clientes reales · que la
-foto sea del equipo de verdad · que el negocio esté en Google Business Profile ·
-la intención de búsqueda de cada página de contenido, si no la dio.
+Search Console conectado, con el sitemap enviado (lo guía el skill `ponla-en-google`) ·
+propiedad de Analytics recibiendo datos · que las reseñas sean de clientes reales · que
+la foto sea del equipo de verdad · que el negocio esté en Google Business Profile ·
+hCaptcha activado en el panel de Web3Forms, si el formulario es de Web3Forms · la
+llave de Google restringida a su dominio, si el sitio trae una · la intención de
+búsqueda de cada página de contenido, si no la dio.
 
 ---
 

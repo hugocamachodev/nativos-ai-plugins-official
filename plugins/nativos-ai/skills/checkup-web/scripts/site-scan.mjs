@@ -415,6 +415,7 @@ async function siteLevel() {
 
 // ---------- recorrido ----------
 let FALLBACK = null;
+const RAW = new Map(); // url -> HTML tal cual llegó; el bloque de seguridad lo relee
 async function crawl(seeds) {
   const queue = [...new Set([norm(START, origin), ...seeds].filter(Boolean))];
   const pages = [];
@@ -434,6 +435,7 @@ async function crawl(seeds) {
 
     const page = parsePage(url, r.body);
     page.status = r.status;
+    RAW.set(url, r.body);
     if (DUMP_DIR) {
       const slug = new URL(url).pathname.replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '');
       const file = `${DUMP_DIR.replace(/\/$/, '')}/${(slug || 'index').replace(/\.html?$/i, '')}.html`;
@@ -566,6 +568,96 @@ async function weighImages(pages) {
   };
 }
 
+// ---------- seguridad ----------
+// Cadenas con la forma de una llave, reconocidas por el prefijo que cada servicio les
+// pone. El script dice QUÉ forma tiene y DÓNDE apareció; si es pública a propósito o
+// un problema lo decide checks.md. Solo prefijos de proveedor: un regex de "cadena
+// larga al azar" sobre un bundle minificado devuelve cientos de falsos positivos.
+const CLAVES = [
+  ['openai', /\bsk-(?!ant-)(?:proj-)?[A-Za-z0-9_-]{32,}/g],
+  ['anthropic', /\bsk-ant-[A-Za-z0-9_-]{32,}/g],
+  ['stripe-secreta', /\b[rs]k_(?:live|test)_[A-Za-z0-9]{20,}/g],
+  ['stripe-publicable', /\bpk_(?:live|test)_[A-Za-z0-9]{20,}/g],
+  ['aws', /\bAKIA[0-9A-Z]{16}\b/g],
+  ['github', /\b(?:gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{60,})/g],
+  ['slack', /\bxox[abprs]-[A-Za-z0-9-]{10,}/g],
+  ['sendgrid', /\bSG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/g],
+  ['llave-privada', /-----BEGIN [A-Z ]*PRIVATE KEY-----/g],
+  ['google-api', /\bAIza[0-9A-Za-z_-]{35}/g],
+];
+// Servicios cuya llave va en el navegador a propósito, y protecciones contra spam.
+// La llave de Web3Forms es un UUID suelto en el bundle (`nm="f99e…"`), lejos de la
+// palabra access_key: se reconoce el servicio, no la cadena.
+const MARCAS = {
+  web3forms: /api\.web3forms\.com/i,
+  hcaptcha: /hcaptcha\.com|h-captcha/i,
+  turnstile: /challenges\.cloudflare\.com\/turnstile|cf-turnstile/i,
+  recaptcha: /google\.com\/recaptcha|g-recaptcha/i,
+  honeypot: /\bbotcheck\b/i,
+};
+const SEC_HEADERS = ['x-content-type-options', 'referrer-policy', 'x-frame-options',
+  'content-security-policy', 'strict-transport-security', 'permissions-policy'];
+// El reporte va al chat: una llave secreta nunca sale completa de aquí.
+const tapar = (s) => s.slice(0, 8) + '…' + s.slice(-2);
+const MAX_JS = 30;
+
+async function seguridad() {
+  const sec = { clavesConForma: [], marcas: [], archivosExpuestos: [] };
+
+  // Los headers son del sitio publicado: un servidor local no lee _headers.
+  if (LOCAL && !SITE_URL) {
+    sec.headersNoMedidos = 'Se sirvió en local y un servidor local no aplica _headers. Revisa el archivo _headers en el código, o pasa --site-url.';
+  } else {
+    const h = (await get(SITE_URL || START)).headers;
+    const valor = (n) => h?.get?.(n) || null;
+    sec.headers = {
+      presentes: Object.fromEntries(SEC_HEADERS.filter(valor).map((n) => [n, valor(n).slice(0, 120)])),
+      faltan: SEC_HEADERS.filter((n) => !valor(n)),
+    };
+  }
+
+  // Lo que recibe el navegador: el HTML de cada página y el JavaScript que pide.
+  const textos = [...RAW];
+  const cola = [];
+  const encolar = (src, base) => { const abs = norm(src, base); if (abs && !cola.includes(abs)) cola.push(abs) };
+  for (const [url, body] of RAW) {
+    for (const m of body.matchAll(/<(?:script|link)\b[^>]*?\b(?:src|href)\s*=\s*["']([^"'#?]+\.m?js)(?:\?[^"']*)?["']/gi)) encolar(m[1], url);
+  }
+  const deEntrada = cola.length;
+  // ponytail: un solo nivel de import() y tope de MAX_JS archivos; lo que pase de ahí sale en jsSinRevisar.
+  for (let i = 0; i < cola.length && i < MAX_JS; i++) {
+    const r = await get(cola[i]);
+    // Con fallback SPA, un .js que no existe vuelve como index.html con 200.
+    if (r.status !== 200 || /<html/i.test(r.body.slice(0, 500))) continue;
+    textos.push([cola[i], r.body]);
+    // Vite parte el bundle y carga pedazos después con import(): el de entrada los nombra.
+    if (i < deEntrada) {
+      for (const m of r.body.matchAll(/["'`]((?:\.{1,2}\/|\/?assets\/)[\w./-]+?\.js)["'`]/g)) encolar(m[1], m[1].startsWith('.') ? cola[i] : origin + '/');
+    }
+  }
+  sec.jsRevisados = Math.min(cola.length, MAX_JS);
+  sec.jsSinRevisar = Math.max(0, cola.length - MAX_JS);
+
+  const vistas = new Set();
+  for (const [url, body] of textos) {
+    for (const [tipo, re] of CLAVES) {
+      for (const m of body.matchAll(re)) {
+        if (vistas.has(tipo + m[0])) continue;
+        vistas.add(tipo + m[0]);
+        sec.clavesConForma.push({ tipo, muestra: tapar(m[0]), en: url });
+      }
+    }
+    for (const [marca, re] of Object.entries(MARCAS)) if (re.test(body) && !sec.marcas.includes(marca)) sec.marcas.push(marca);
+  }
+
+  // Un .env o un .git copiados a la carpeta pública se sirven como cualquier archivo.
+  for (const [ruta, firma] of [['/.env', /^\s*[A-Z_][A-Z0-9_]*\s*=/m], ['/.git/config', /\[core\]/]]) {
+    const r = await get(origin + ruta);
+    if (r.status === 200 && !/<html/i.test(r.body.slice(0, 500)) && firma.test(r.body)) sec.archivosExpuestos.push(ruta);
+  }
+  return sec;
+}
+
 // ---------- main ----------
 if (DUMP_DIR) await mkdir(DUMP_DIR, { recursive: true });
 const { site, sitemapUrls } = await siteLevel();
@@ -578,6 +670,7 @@ if (!pages.length) {
 }
 const links = await checkLinks(pages, FALLBACK);
 const images = await weighImages(pages);
+const seg = await seguridad();
 
 const salida = {
   scannedAt: new Date().toISOString(),
@@ -590,6 +683,7 @@ const salida = {
   cross: crossPage(pages, sitemapUrls),
   links,
   images,
+  seguridad: seg,
 };
 
 // El volcado completo de un sitio mediano son ~150 KB, o sea unos 40.000 tokens si el
@@ -648,6 +742,7 @@ const resumen = {
     ejemplosRemotas: images.remote.slice(0, 5),
     noMedidas: images.notMeasured,
   },
+  seguridad: { ...seg, clavesConForma: seg.clavesConForma.slice(0, 20) },
 };
 
 // Un JSON lleno de null es ruido que el modelo paga por leer. Pero una LISTA VACÍA no

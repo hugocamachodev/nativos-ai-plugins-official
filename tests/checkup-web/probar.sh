@@ -19,7 +19,7 @@ PORT="${PORT:-8899}"
 
 # --stop sin argumento mata TODOS los servidores de detect-build de la máquina,
 # incluidos los de otra auditoría que esté corriendo en paralelo. Aquí solo el nuestro.
-limpiar() { kill "${SIMPLE:-}" "${SERVE:-}" "${SPA:-}" 2>/dev/null || true; [ -n "${URL:-}" ] && node "$DETECT" --stop "$URL" >/dev/null 2>&1; kill "$SIMPLE" 2>/dev/null || true; rm -f "$HERE"/.scan-*.json "$HERE/.serve.log" "$HERE/.spa-rendered.html"; return 0; }
+limpiar() { kill "${SIMPLE:-}" "${SERVE:-}" "${SPA:-}" 2>/dev/null || true; [ -n "${URL:-}" ] && node "$DETECT" --stop "$URL" >/dev/null 2>&1; kill "$SIMPLE" 2>/dev/null || true; rm -f "$HERE"/.scan-*.json "$HERE/.serve.log" "$HERE/.spa-rendered.html" "$HERE/.env"; return 0; }
 trap limpiar EXIT
 
 # El sitemap se genera con la url de cada camino: el fixture se sirve en dos puertos
@@ -30,6 +30,10 @@ sitemap_para() {
     for pag in "" servicios.html contacto.html huerfana.html; do echo "  <url><loc>${1%/}/$pag</loc></url>"; done
     echo '</urlset>'; } > "$HERE/sitemap.xml"
 }
+
+# Un .env olvidado en la carpeta pública se sirve como cualquier archivo. Se crea aquí
+# y se borra al salir para que nunca llegue al repositorio.
+printf 'OPENAI_API_KEY=falsa\n' > "$HERE/.env"
 
 # --- camino simple ---
 python3 -m http.server "$PORT" --directory "$HERE" >/dev/null 2>&1 &
@@ -100,6 +104,14 @@ def revisar(ruta, camino):
         # rastrearla inflaría el conteo y duplicaría títulos que no existen.
         'sin paginas fantasma':     d['pageCount'] == 4,
         'sin imagenes rotas':       not d['images']['broken'],
+        # Seguridad: la llave en el JS, la del pedazo que se carga con import(), y
+        # ninguna completa en la salida, que termina en el chat.
+        'llave en el JS':           any(k['tipo'] == 'openai' for k in d['seguridad']['clavesConForma']),
+        'sigue el import()':        any(k['tipo'] == 'anthropic' for k in d['seguridad']['clavesConForma']),
+        'llaves enmascaradas':      all('LLAVE-REAL' not in k['muestra'] for k in d['seguridad']['clavesConForma']),
+        'web3forms y hcaptcha':     {'web3forms', 'hcaptcha'} <= set(d['seguridad']['marcas']),
+        '.env expuesto':            d['seguridad']['archivosExpuestos'] == ['/.env'],
+        'headers no medidos local': bool(d['seguridad'].get('headersNoMedidos')),
     }
     # Lo que solo es medible según el camino. Un servidor con fallback no puede decir
     # nada sobre el 404 del sitio: lo honesto es declararlo, no inventar un veredicto.
@@ -159,6 +171,7 @@ resumen = {
     'conserva el form sin destino': any(f['destino'] == 'no-visible' for p in r['pages'] for f in p.get('formularios', [])),
     'conserva los duplicados':    len(r['cross']['duplicateTitles']) == 1,
     'conserva la huerfana':       len(r['cross']['orphans']) == 1,
+    'conserva la llave':          any(k['tipo'] == 'openai' for k in r['seguridad']['clavesConForma']),
 }
 print('--- resumen (lo que el skill lee): %d KB vs %d KB del volcado' % (res_sz // 1024, full_sz // 1024))
 for k, v in resumen.items():

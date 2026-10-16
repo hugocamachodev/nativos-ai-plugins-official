@@ -15,7 +15,8 @@ Cosas que se agregan, no que se mueven. Ninguna rompe un enlace existente.
 
 `robots.txt` · `sitemap.xml` · `llms.txt` · `alt` faltantes · títulos y descripciones
 únicos · datos estructurados · página 404 · `og:image` · favicon · `lang` en `<html>` ·
-`viewport` · quitar un `noindex` olvidado · `noindex` al paginador.
+`viewport` · quitar un `noindex` olvidado · `noindex` al paginador · `_headers` con los
+tres headers básicos · `.env` en `.gitignore`.
 
 ## No se aplica nunca sin decir el costo
 
@@ -25,6 +26,8 @@ Cosas que se agregan, no que se mueven. Ninguna rompe un enlace existente.
 | **Renombrar archivos de imagen** | Mismo problema, más chico. |
 | **Comprimir imágenes** | Se cambia un archivo del usuario. Propón la herramienta y el objetivo; no lo hagas por tu cuenta. |
 | **Tocar la etiqueta de analítica** | Un identificador equivocado pierde datos en silencio. Que lo pegue quien tiene la cuenta. |
+| **Una clave secreta que ya se publicó** | Sacarla del código no la des-publica. Primero el dueño la rota en el panel del servicio (una nueva y borra la vieja), y solo después se quita del código o se mueve a donde no llegue al navegador. Tú no puedes rotarla: dile cómo. |
+| **Una `Content-Security-Policy`** | Mal hecha rompe hCaptcha, Web3Forms, Maps o las fuentes, y el sitio se ve bien mientras deja de llegar el formulario. No la escribas como arreglo rápido. |
 
 ---
 
@@ -136,6 +139,33 @@ marcado.
 Que devuelva código `404` de verdad, no `200`. Con tres cosas basta: decir que la
 página no existe, un enlace a la home y el menú del sitio. Cómo se instala depende de
 la plataforma — en un sitio estático suele ser `404.html` en la raíz.
+
+### `_headers` — los tres básicos
+
+Va en `public/_headers` (Vite lo copia a `dist/`), sin extensión. En un sitio sin
+framework, en la carpeta que publica el Worker (`assets.directory` del wrangler).
+
+```
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+```
+
+Workers static assets lo lee y lo aplica a lo que sirve (doc de Cloudflare, "Headers").
+No aplica a respuestas que genera el código del Worker. Después de publicar, se
+comprueba con `curl -sI https://tusitio.com/`.
+
+### `.gitignore` — que ningún `.env` suba
+
+```
+.env
+.env.*
+!.env.example
+```
+
+Si ya había un `.env` en git, agregarlo aquí no lo saca del historial: ver la fila de
+claves en la tabla de arriba.
 
 ### `og:image`
 

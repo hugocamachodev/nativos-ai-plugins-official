@@ -38,6 +38,25 @@ que vio en un video no aplica completa a su caso.
 Lo que no se ve desde fuera. Cada uno con sus pasos, escritos para alguien que nunca
 abrió Search Console. Los pasos están en `manual.md`; no los reescribas de memoria.
 
+## La seguridad, dentro de los mismos bloques
+
+No es un quinto bloque: cada hallazgo cae donde le toca. Una clave secreta a la vista o
+un `.env` publicado va al 1; el `.env` sin cubrir en `.gitignore`, el formulario sin
+captcha, los headers y el aviso de privacidad van al 2, y el hCaptcha en el panel de
+Web3Forms, al 4.
+
+Dos cosas solo de este tema:
+
+- **Las claves públicas a propósito se dicen en una línea, en el bloque 1**, como parte
+  de la buena noticia o junto a la clave secreta si la hay. Quien ve
+  una llave en su código se asusta, y con razón. Que lea que la access key de Web3Forms
+  y la sitekey del captcha están hechas para ir en la página.
+  > La llave de Web3Forms y la del captcha están a la vista a propósito: así funcionan.
+  > Lo que nunca va en la página es una llave secreta, y no encontré ninguna.
+- **Una clave secreta publicada se reporta con su remedio en orden**: rotarla en el
+  panel del servicio, y solo después quitarla del código. Al revés, la llave vieja sigue
+  sirviendo a quien ya la copió. Nunca la escribas completa.
+
 ## Después de los cuatro bloques
 
 Si el código está en la carpeta, ofrece arreglar: **la lista de lo que tocarías,
