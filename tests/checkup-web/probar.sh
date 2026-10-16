@@ -97,7 +97,7 @@ def revisar(ruta, camino):
         'imagen sin alt':           [i['src'] for p in d['pages'] for i in p['images'] if i['alt'] is None] == ['IMG_1234.jpg'],
         'enlace roto':              [name(x['url']) for x in d['links']['broken']] == ['precios.html'],
         'formulario sin destino':   any(f['destino'] == 'no-visible' for p in d['pages'] for f in p['forms']),
-        'imagen pesada':            any(i['bytes'] and i['bytes'] > 500_000 for i in d['images']['measured']),
+        'imagen pesada':            any(i['bytes'] and i['bytes'] > 500 * 1024 for i in d['images']['measured']),
         'ancla rota':               any('no-existe' in p['brokenAnchors'] for p in d['pages']),
         'entidades decodificadas':  any('&amp;' not in (i['alt'] or '') for p in d['pages'] for i in p['images']),
         # 4 páginas, ni una más: con fallback, una ruta inexistente devuelve la home y

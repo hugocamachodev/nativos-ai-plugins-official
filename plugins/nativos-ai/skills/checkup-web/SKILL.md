@@ -101,7 +101,8 @@ cualquier ruta, porque así funcionan las SPA. El escaneo lo detecta y pone
 `measurable: false`: cuando eso pasa, **no hay nada que concluir sobre la página 404
 desde el servidor**, y lo que responda el sitio publicado lo decide la configuración
 del hosting. Búscala en el repositorio (`_redirects`, `netlify.toml`, `vercel.json`,
-`.htaccess`, `next.config`) y juzga con eso. Afirmar "tienes soft 404" o "sí tienes
+`.htaccess`, `next.config`, y en Cloudflare Workers `not_found_handling` en
+`wrangler.jsonc` o `wrangler.toml`) y juzga con eso. Afirmar "tienes soft 404" o "sí tienes
 404 propia" a partir de un servidor local es inventar.
 
 **El mismo servidor tampoco honra las reglas de redirección.** Si un enlace roto trae
@@ -136,9 +137,11 @@ Reportar "fuera de 50–60 caracteres" como un defecto es un defecto del reporte
 Y una medición suya está mal, no solo su veredicto: **`image_alt_text` cuenta como
 "falta alt" las imágenes que llevan `alt=""` a propósito.** Un `alt` vacío es la forma
 correcta de marcar una imagen decorativa; el script las suma a las que no tienen el
-atributo. Para `alt`, usa `pages[].images[].alt` del escaneo, que sí distingue `null`
-de `""`. De `seo_checker.py` son fiables: title, meta description, conteo de H1,
-jerarquía de encabezados, conteo de palabras y viewport.
+atributo. Para `alt`, usa `pages[].imagenes` del escaneo, que sí las separa: `sinAlt`
+cuenta las que no traen el atributo, `altVacio` las que traen `alt=""` y
+`ejemplosSinAlt` nombra hasta cinco de las primeras. De `seo_checker.py` son fiables:
+title, meta description, conteo de H1, jerarquía de encabezados, conteo de palabras y
+viewport.
 
 **4 · Juzgar.** `references/checks.md`, punto por punto. Cada hallazgo dice de dónde
 salió: del escaneo, de leer el HTML renderizado, o de que no se pudo medir.

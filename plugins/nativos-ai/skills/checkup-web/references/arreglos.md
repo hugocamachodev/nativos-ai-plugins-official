@@ -140,6 +140,29 @@ Que devuelva código `404` de verdad, no `200`. Con tres cosas basta: decir que 
 página no existe, un enlace a la home y el menú del sitio. Cómo se instala depende de
 la plataforma — en un sitio estático suele ser `404.html` en la raíz.
 
+**En Cloudflare Workers el archivo solo no basta.** `not_found_handling` decide qué
+pasa con una ruta que no existe y viene en `"none"`: así el `404.html` no se sirve en
+las rutas que no existen.
+Con `"404-page"` el Worker sirve el `404.html` más cercano con código `404` (doc de
+Cloudflare, "Static Site Generation and custom 404 pages"):
+
+```jsonc
+// wrangler.jsonc
+{
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  }
+}
+```
+
+En Vite, el `404.html` va en `public/` para que llegue a `dist/`. Si el wrangler trae
+`"single-page-application"`, cualquier ruta devuelve el `index.html` con `200` (doc de
+Cloudflare, "Single Page Application"): eso solo hace
+falta cuando la app tiene rutas propias en el navegador (React Router). En una página
+de una sola vista, cámbialo por `"404-page"`. Después de publicar, se comprueba con
+`curl -sI https://tusitio.com/no-existe`.
+
 ### `_headers` — los tres básicos
 
 Va en `public/_headers` (Vite lo copia a `dist/`), sin extensión. En un sitio sin

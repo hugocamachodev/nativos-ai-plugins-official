@@ -735,7 +735,9 @@ const resumen = {
   images: {
     total: images.measured.length,
     rotas: images.broken.map((i) => ({ url: i.url, status: i.status, servedFallback: i.servedFallback })),
-    pesadas: images.measured.filter((i) => i.bytes && i.bytes > 500_000)
+    // Misma unidad que `kb`: con 500_000 una de 490 KB saldría "pesada" contra un
+    // checks.md que dice "más de 500 KB".
+    pesadas: images.measured.filter((i) => i.bytes && i.bytes > 500 * 1024)
       .sort((a, b) => b.bytes - a.bytes).slice(0, 10).map((i) => ({ url: i.url, kb: Math.round(i.bytes / 1024) })),
     sinPesoDeclarado: images.unweighable.length,
     remotas: images.remote.length,
