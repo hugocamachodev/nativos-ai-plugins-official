@@ -20,6 +20,8 @@ const HELP = `site-scan.mjs — recorre un sitio y reporta observaciones para el
   --site-url <url>     dominio real de producción, cuando --url es un servidor local.
                        Sin esto, https/www/sitemap no se pueden juzgar y se reportan
                        como no medidos en vez de acusar al sitio por correr en local.
+                       Con esto, los headers y el sondeo de /.env y /.git/config se
+                       hacen contra el sitio publicado, no contra la carpeta.
   --dump-dir <dir>     guarda el HTML de cada página aquí (para seo_checker.py)
   --full               volcado completo en vez del resumen. NO lo leas entero: en un
                        sitio mediano son ~40.000 tokens y se come la sesión de quien
@@ -415,6 +417,7 @@ async function siteLevel() {
 
 // ---------- recorrido ----------
 let FALLBACK = null;
+const RAW = new Map(); // url -> HTML tal cual llegó; el bloque de seguridad lo relee
 async function crawl(seeds) {
   const queue = [...new Set([norm(START, origin), ...seeds].filter(Boolean))];
   const pages = [];
@@ -434,6 +437,7 @@ async function crawl(seeds) {
 
     const page = parsePage(url, r.body);
     page.status = r.status;
+    RAW.set(url, r.body);
     if (DUMP_DIR) {
       const slug = new URL(url).pathname.replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '');
       const file = `${DUMP_DIR.replace(/\/$/, '')}/${(slug || 'index').replace(/\.html?$/i, '')}.html`;
@@ -566,6 +570,131 @@ async function weighImages(pages) {
   };
 }
 
+// ---------- seguridad ----------
+// Cadenas con la forma de una llave, reconocidas por el prefijo que cada servicio les
+// pone. El script dice QUÉ forma tiene y DÓNDE apareció; si es pública a propósito o
+// un problema lo decide checks.md. Solo prefijos de proveedor: un regex de "cadena
+// larga al azar" sobre un bundle minificado devuelve cientos de falsos positivos.
+const CLAVES = [
+  ['openai', /\bsk-(?!ant-)(?:proj-)?[A-Za-z0-9_-]{32,}/g],
+  ['anthropic', /\bsk-ant-[A-Za-z0-9_-]{32,}/g],
+  ['stripe-secreta', /\b[rs]k_(?:live|test)_[A-Za-z0-9]{20,}/g],
+  ['stripe-publicable', /\bpk_(?:live|test)_[A-Za-z0-9]{20,}/g],
+  ['supabase-secreta', /\bsb_secret_[A-Za-z0-9_-]{20,}/g],
+  ['supabase-publicable', /\bsb_publishable_[A-Za-z0-9_-]{20,}/g],
+  ['aws', /\bAKIA[0-9A-Z]{16}\b/g],
+  ['github', /\b(?:gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{60,})/g],
+  ['slack', /\bxox[abprs]-[A-Za-z0-9-]{10,}/g],
+  ['slack-webhook', /hooks\.slack\.com\/services\/T[A-Z0-9]+\/B[A-Z0-9]+\/[A-Za-z0-9]{16,}/g],
+  ['discord-webhook', /discord(?:app)?\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]{20,}/g],
+  ['telegram', /\b\d{6,10}:[A-Za-z0-9_-]{30,}/g],
+  ['sendgrid', /\bSG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/g],
+  // El encabezado suelto vive en las librerías que LEEN llaves; una llave de verdad trae
+  // su cuerpo en base64 detrás (en un string de JS, separado por un \n escrito).
+  ['llave-privada', /-----BEGIN [A-Z ]*PRIVATE KEY-----(?:\\n|\s)+[A-Za-z0-9+/=]{20,}/g],
+  ['google-api', /\bAIza[0-9A-Za-z_-]{35}/g],
+];
+// Una llave de verdad es aleatoria y trae mayúsculas y números. Un nombre de clase o de
+// función con el mismo prefijo ("sk-loading-spinner-…") no, y no se acusa.
+const ALEATORIAS = new Set(['openai', 'anthropic', 'telegram']);
+const pareceAleatoria = (s) => /[A-Z]/.test(s) && /\d/.test(s);
+// Servicios cuya llave va en el navegador a propósito, y protecciones contra spam.
+// La llave de Web3Forms es un UUID suelto en el bundle (`nm="f99e…"`), lejos de la
+// palabra access_key: se reconoce el servicio, no la cadena.
+const MARCAS = {
+  web3forms: /api\.web3forms\.com/i,
+  hcaptcha: /hcaptcha\.com|h-captcha/i,
+  turnstile: /challenges\.cloudflare\.com\/turnstile|cf-turnstile/i,
+  recaptcha: /google\.com\/recaptcha|g-recaptcha/i,
+  honeypot: /\bbotcheck\b/i,
+  // Las llaves de Gemini también empiezan con AIza, como las de Maps. Si la página llama
+  // a Gemini desde el navegador, su llave está a la vista: checks.md lo manda al bloque 1.
+  gemini: /generativelanguage\.googleapis\.com/i,
+};
+const SEC_HEADERS = ['x-content-type-options', 'referrer-policy', 'x-frame-options',
+  'content-security-policy', 'strict-transport-security', 'permissions-policy'];
+// El reporte va al chat: una llave secreta nunca sale completa de aquí.
+const tapar = (s) => s.slice(0, 8) + '…' + s.slice(-2);
+// Una imagen de otro dominio (un mapa estático, un CDN) puede traer su llave en la
+// dirección. Esas direcciones salen en el resumen: se tapa el valor, no la dirección.
+const taparUrl = (u) => u.replace(/([?&](?:key|api_?key|token|access_token)=)([^&#]+)/gi, (m, p, v) => p + tapar(v));
+const MAX_JS = 30;
+
+async function seguridad() {
+  const sec = { clavesConForma: [], marcas: [] };
+
+  // Los headers son del sitio publicado: un servidor local no lee _headers.
+  if (LOCAL && !SITE_URL) {
+    sec.headersNoMedidos = 'Se sirvió en local y un servidor local no aplica _headers. Revisa el archivo _headers en el código, o pasa --site-url.';
+  } else {
+    const r = await get(SITE_URL || START);
+    // Sin respuesta no hay headers. Juzgarlos así acusaría que faltan los seis.
+    if (!r.ok) {
+      sec.headersNoMedidos = `No se pudo pedir ${SITE_URL || START} (${r.error}). Sin respuesta no hay headers que juzgar.`;
+    } else {
+      const valor = (n) => r.headers.get(n);
+      sec.headers = {
+        presentes: Object.fromEntries(SEC_HEADERS.filter(valor).map((n) => [n, valor(n).slice(0, 120)])),
+        faltan: SEC_HEADERS.filter((n) => !valor(n)),
+      };
+    }
+  }
+
+  // Lo que recibe el navegador: el HTML de cada página y el JavaScript que pide.
+  const textos = [...RAW];
+  const cola = [];
+  const encolar = (src, base) => { const abs = norm(src, base); if (abs && !cola.includes(abs)) cola.push(abs) };
+  for (const [url, body] of RAW) {
+    for (const m of body.matchAll(/<(?:script|link)\b[^>]*?\b(?:src|href)\s*=\s*["']([^"'#?]+\.m?js)(?:\?[^"']*)?["']/gi)) encolar(m[1], url);
+  }
+  const deEntrada = cola.length;
+  const sinSeguir = new Set();
+  // ponytail: un solo nivel de import() y tope de MAX_JS archivos; lo que queda fuera se cuenta en jsSinRevisar.
+  for (let i = 0; i < cola.length && i < MAX_JS; i++) {
+    const r = await get(cola[i]);
+    // Con fallback SPA, un .js que no existe vuelve como index.html con 200.
+    if (r.status !== 200 || /<html/i.test(r.body.slice(0, 500))) continue;
+    textos.push([cola[i], r.body]);
+    // Vite parte el bundle y carga pedazos después con import(): el de entrada los nombra.
+    for (const m of r.body.matchAll(/["'`]((?:\.{1,2}\/|\/?assets\/)[\w./-]+?\.m?js)["'`]/g)) {
+      const abs = norm(m[1], m[1].startsWith('.') ? cola[i] : origin + '/');
+      if (!abs || cola.includes(abs)) continue;
+      if (i < deEntrada) cola.push(abs); else sinSeguir.add(abs);
+    }
+  }
+  sec.jsRevisados = textos.length - RAW.size;
+  sec.jsSinRevisar = Math.max(0, cola.length - MAX_JS) + sinSeguir.size;
+
+  const vistas = new Set();
+  for (const [url, body] of textos) {
+    for (const [tipo, re] of CLAVES) {
+      for (const m of body.matchAll(re)) {
+        if (vistas.has(tipo + m[0])) continue;
+        vistas.add(tipo + m[0]);
+        if (ALEATORIAS.has(tipo) && !pareceAleatoria(m[0])) continue;
+        sec.clavesConForma.push({ tipo, muestra: tapar(m[0]), en: url });
+      }
+    }
+    for (const [marca, re] of Object.entries(MARCAS)) if (re.test(body) && !sec.marcas.includes(marca)) sec.marcas.push(marca);
+  }
+
+  // Un .env o un .git que se publican se descargan como cualquier archivo. Se pregunta
+  // al sitio publicado: servido en local, la respuesta dice qué hay en la carpeta, no qué
+  // se subió, y acusar con eso manda a rotar llaves que nunca salieron de la compu.
+  const hallados = [];
+  for (const [ruta, firma] of [['/.env', /^\s*[A-Z_][A-Z0-9_]*\s*=/m], ['/.git/config', /\[core\]/]]) {
+    const r = await get((SITE_URL ? new URL(SITE_URL).origin : origin) + ruta);
+    if (r.status === 200 && !/<html/i.test(r.body.slice(0, 500)) && firma.test(r.body)) hallados.push(ruta);
+  }
+  if (LOCAL && !SITE_URL) {
+    sec.archivosEnCarpeta = hallados;
+    if (hallados.length) sec.archivosNota = 'Se sirvió la carpeta en local: esto dice qué hay en ella, no qué está publicado. Se publica si el wrangler sube esa carpeta (assets.directory) y .assetsignore no lo excluye.';
+  } else {
+    sec.archivosExpuestos = hallados;
+  }
+  return sec;
+}
+
 // ---------- main ----------
 if (DUMP_DIR) await mkdir(DUMP_DIR, { recursive: true });
 const { site, sitemapUrls } = await siteLevel();
@@ -578,6 +707,7 @@ if (!pages.length) {
 }
 const links = await checkLinks(pages, FALLBACK);
 const images = await weighImages(pages);
+const seg = await seguridad();
 
 const salida = {
   scannedAt: new Date().toISOString(),
@@ -590,6 +720,7 @@ const salida = {
   cross: crossPage(pages, sitemapUrls),
   links,
   images,
+  seguridad: seg,
 };
 
 // El volcado completo de un sitio mediano son ~150 KB, o sea unos 40.000 tokens si el
@@ -641,13 +772,16 @@ const resumen = {
   images: {
     total: images.measured.length,
     rotas: images.broken.map((i) => ({ url: i.url, status: i.status, servedFallback: i.servedFallback })),
-    pesadas: images.measured.filter((i) => i.bytes && i.bytes > 500_000)
+    // Misma unidad que `kb`: con 500_000 una de 490 KB saldría "pesada" contra un
+    // checks.md que dice "más de 500 KB".
+    pesadas: images.measured.filter((i) => i.bytes && i.bytes > 500 * 1024)
       .sort((a, b) => b.bytes - a.bytes).slice(0, 10).map((i) => ({ url: i.url, kb: Math.round(i.bytes / 1024) })),
     sinPesoDeclarado: images.unweighable.length,
     remotas: images.remote.length,
-    ejemplosRemotas: images.remote.slice(0, 5),
+    ejemplosRemotas: images.remote.slice(0, 5).map(taparUrl),
     noMedidas: images.notMeasured,
   },
+  seguridad: { ...seg, clavesConForma: seg.clavesConForma.slice(0, 20) },
 };
 
 // Un JSON lleno de null es ruido que el modelo paga por leer. Pero una LISTA VACÍA no

@@ -19,7 +19,7 @@ PORT="${PORT:-8899}"
 
 # --stop sin argumento mata TODOS los servidores de detect-build de la máquina,
 # incluidos los de otra auditoría que esté corriendo en paralelo. Aquí solo el nuestro.
-limpiar() { kill "${SIMPLE:-}" "${SERVE:-}" "${SPA:-}" 2>/dev/null || true; [ -n "${URL:-}" ] && node "$DETECT" --stop "$URL" >/dev/null 2>&1; kill "$SIMPLE" 2>/dev/null || true; rm -f "$HERE"/.scan-*.json "$HERE/.serve.log" "$HERE/.spa-rendered.html"; return 0; }
+limpiar() { kill "${SIMPLE:-}" "${SERVE:-}" "${SPA:-}" 2>/dev/null || true; [ -n "${URL:-}" ] && node "$DETECT" --stop "$URL" >/dev/null 2>&1; kill "$SIMPLE" 2>/dev/null || true; rm -f "$HERE"/.scan-*.json "$HERE/.serve.log" "$HERE/.spa-rendered.html" "$HERE/.env"; return 0; }
 trap limpiar EXIT
 
 # El sitemap se genera con la url de cada camino: el fixture se sirve en dos puertos
@@ -30,6 +30,10 @@ sitemap_para() {
     for pag in "" servicios.html contacto.html huerfana.html; do echo "  <url><loc>${1%/}/$pag</loc></url>"; done
     echo '</urlset>'; } > "$HERE/sitemap.xml"
 }
+
+# Un .env olvidado en la carpeta pública se sirve como cualquier archivo. Se crea aquí
+# y se borra al salir para que nunca llegue al repositorio.
+printf 'OPENAI_API_KEY=falsa\n' > "$HERE/.env"
 
 # --- camino simple ---
 python3 -m http.server "$PORT" --directory "$HERE" >/dev/null 2>&1 &
@@ -69,8 +73,11 @@ kill "$SPA" 2>/dev/null || true; SPA=""
 # estudiante en la primera orden.
 sitemap_para "http://localhost:$PORT2"
 node "$SCAN" --url "http://localhost:$PORT2/" 2>/dev/null > "$HERE/.scan-resumen.json" || true
+# Con --site-url, los headers y el sondeo de /.env van al sitio publicado. Uno que no
+# responde no puede acusar seis headers faltantes ni el .env de la carpeta.
+node "$SCAN" --url "http://localhost:$PORT2/" --site-url "https://no-existe-nativos.invalid/" 2>/dev/null > "$HERE/.scan-sin-respuesta.json" || true
 
-python3 - "$HERE/.scan-simple.json" "$HERE/.scan-fallback.json" "$HERE/.scan-spa.json" "$HERE/.spa-rendered.html" "$HERE/.scan-resumen.json" <<'ENDPY'
+python3 - "$HERE/.scan-simple.json" "$HERE/.scan-fallback.json" "$HERE/.scan-spa.json" "$HERE/.spa-rendered.html" "$HERE/.scan-resumen.json" "$HERE/.scan-sin-respuesta.json" <<'ENDPY'
 import json, sys, os
 
 def revisar(ruta, camino):
@@ -93,13 +100,27 @@ def revisar(ruta, camino):
         'imagen sin alt':           [i['src'] for p in d['pages'] for i in p['images'] if i['alt'] is None] == ['IMG_1234.jpg'],
         'enlace roto':              [name(x['url']) for x in d['links']['broken']] == ['precios.html'],
         'formulario sin destino':   any(f['destino'] == 'no-visible' for p in d['pages'] for f in p['forms']),
-        'imagen pesada':            any(i['bytes'] and i['bytes'] > 500_000 for i in d['images']['measured']),
+        'imagen pesada':            any(i['bytes'] and i['bytes'] > 500 * 1024 for i in d['images']['measured']),
         'ancla rota':               any('no-existe' in p['brokenAnchors'] for p in d['pages']),
         'entidades decodificadas':  any('&amp;' not in (i['alt'] or '') for p in d['pages'] for i in p['images']),
         # 4 páginas, ni una más: con fallback, una ruta inexistente devuelve la home y
         # rastrearla inflaría el conteo y duplicaría títulos que no existen.
         'sin paginas fantasma':     d['pageCount'] == 4,
         'sin imagenes rotas':       not d['images']['broken'],
+        # Seguridad: la llave en el JS, la del pedazo que se carga con import(), y
+        # ninguna completa en la salida, que termina en el chat.
+        'llave en el JS':           any(k['tipo'] == 'openai' for k in d['seguridad']['clavesConForma']),
+        'sigue el import()':        any(k['tipo'] == 'anthropic' for k in d['seguridad']['clavesConForma']),
+        'llaves enmascaradas':      all('LLAVE-REAL' not in k['muestra'] for k in d['seguridad']['clavesConForma']),
+        'web3forms y hcaptcha':     {'web3forms', 'hcaptcha'} <= set(d['seguridad']['marcas']),
+        # Servido en local, el .env está en la carpeta: eso no dice que esté publicado.
+        '.env en carpeta, no publicado': d['seguridad'].get('archivosEnCarpeta') == ['/.env'] and 'archivosExpuestos' not in d['seguridad'],
+        'gemini en las marcas':     'gemini' in d['seguridad']['marcas'],
+        # Ni el nombre de clase "sk-loading-…" ni el encabezado PEM suelto son llaves.
+        'sin falsas alarmas':       [k['tipo'] for k in d['seguridad']['clavesConForma']] == ['openai', 'anthropic'],
+        # app.js y pedazo.js se leen; el import() de segundo nivel se cuenta, no se sigue.
+        'cuenta lo leido':          d['seguridad']['jsRevisados'] == 2 and d['seguridad']['jsSinRevisar'] == 1,
+        'headers no medidos local': bool(d['seguridad'].get('headersNoMedidos')),
     }
     # Lo que solo es medible según el camino. Un servidor con fallback no puede decir
     # nada sobre el 404 del sitio: lo honesto es declararlo, no inventar un veredicto.
@@ -159,12 +180,27 @@ resumen = {
     'conserva el form sin destino': any(f['destino'] == 'no-visible' for p in r['pages'] for f in p.get('formularios', [])),
     'conserva los duplicados':    len(r['cross']['duplicateTitles']) == 1,
     'conserva la huerfana':       len(r['cross']['orphans']) == 1,
+    'conserva la llave':          any(k['tipo'] == 'openai' for k in r['seguridad']['clavesConForma']),
+    'tapa la llave de una imagen': 'ESTONOESREAL1234567890' not in json.dumps(r) and any('token=' in u for u in r['images'].get('ejemplosRemotas', [])),
 }
 print('--- resumen (lo que el skill lee): %d KB vs %d KB del volcado' % (res_sz // 1024, full_sz // 1024))
 for k, v in resumen.items():
     print(('  ok    ' if v else '  FALLA ') + k)
 total += len(resumen)
 total_fallos += [f'resumen: {k}' for k, v in resumen.items() if not v]
+print()
+
+# --- un sitio publicado que no responde ---
+s6 = json.load(open(sys.argv[6]))['seguridad']
+sinresp = {
+    'headers no medidos':         bool(s6.get('headersNoMedidos')) and 'headers' not in s6,
+    'sondea el publicado':        s6.get('archivosExpuestos') == [] and 'archivosEnCarpeta' not in s6,
+}
+print('--- sitio publicado que no responde (--site-url a un dominio que no existe)')
+for k, v in sinresp.items():
+    print(('  ok    ' if v else '  FALLA ') + k)
+total += len(sinresp)
+total_fallos += [f'sin respuesta: {k}' for k, v in sinresp.items() if not v]
 print()
 
 if total_fallos:

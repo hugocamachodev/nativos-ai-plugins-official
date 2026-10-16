@@ -23,7 +23,10 @@ hacer tú. Encuentra lo que de verdad tumba un sitio: el `noindex` que se quedó
 desarrollo y te deja invisible en Google, enlaces que no llevan a ningún lado,
 formularios que no mandan nada, "Lorem ipsum" en producción, fotos sin comprimir.
 Y también robots.txt, sitemap, página 404, títulos únicos, texto en las imágenes y
-la etiqueta de Analytics. Si tienes el código a la mano, te ofrece arreglarlo.
+la etiqueta de Analytics. Revisa la seguridad básica: que no haya llaves secretas a la
+vista, que tu `.env` no se suba a GitHub, que el formulario tenga captcha y los headers
+básicos. Y te dice qué llaves sí pueden estar a la vista. Si tienes el código a la mano,
+te ofrece arreglarlo.
 
 Entiende qué tipo de negocio tienes: no te va a pedir un mapa si no tienes local,
 ni migajas de pan si tu sitio es de una sola página.
@@ -35,6 +38,23 @@ ni migajas de pan si tu sitio es de una sola página.
 > ¿qué me falta antes de lanzar?
 >
 > hazle un checkup a mi página
+
+### 🔎 Ponla en Google
+
+Para cuando tu página ya tiene dominio propio en Cloudflare. Te guía pantalla por
+pantalla: le mandas una captura en cada paso y te dice qué picar. Primero revisa que
+tu sitio tenga sitemap. Después deja Cloudflare en orden: siempre con candado, `www`
+llevando a tu dominio y sin bloquear a Google por accidente. Y al final la da de alta
+en Google Search Console, con el sitemap enviado. Funciona igual con el sitio de un
+cliente, en la cuenta del cliente.
+
+**Solo díselo con tus palabras:**
+
+> ponla en Google
+>
+> quiero que mi página salga en Google
+>
+> da de alta mi sitio en Search Console
 
 ### 🔍 Auditar una landing page
 
@@ -138,11 +158,22 @@ pero no lo necesita.
 
 ## Recibir lo nuevo
 
-Cada vez que publiquemos algo, corre esto y ya lo tienes:
+Cada vez que publiquemos algo, dentro de Claude Code escribe `/plugin`, entra a la
+pestaña **Marketplaces**, elige `nativos-ai-marketplace` y dale a **Update marketplace**.
+Después escribe:
 
 ```
-/plugin marketplace update nativos-ai-marketplace
+/reload-plugins
 ```
+
+O desde la terminal, y luego vuelves a abrir Claude Code:
+
+```
+claude plugin marketplace update nativos-ai-marketplace
+claude plugin update nativos-ai@nativos-ai-marketplace
+```
+
+Si quieres que te llegue solo, en esa misma pestaña elige **Enable auto-update**.
 
 ## ¿Te falta algo?
 

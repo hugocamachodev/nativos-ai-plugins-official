@@ -15,7 +15,9 @@ Cosas que se agregan, no que se mueven. Ninguna rompe un enlace existente.
 
 `robots.txt` · `sitemap.xml` · `llms.txt` · `alt` faltantes · títulos y descripciones
 únicos · datos estructurados · página 404 · `og:image` · favicon · `lang` en `<html>` ·
-`viewport` · quitar un `noindex` olvidado · `noindex` al paginador.
+`viewport` · quitar un `noindex` olvidado · `noindex` al paginador · `_headers` con los
+tres headers básicos · `.env` en `.gitignore` · `.assetsignore` cuando el wrangler
+publica la raíz del proyecto.
 
 ## No se aplica nunca sin decir el costo
 
@@ -25,6 +27,8 @@ Cosas que se agregan, no que se mueven. Ninguna rompe un enlace existente.
 | **Renombrar archivos de imagen** | Mismo problema, más chico. |
 | **Comprimir imágenes** | Se cambia un archivo del usuario. Propón la herramienta y el objetivo; no lo hagas por tu cuenta. |
 | **Tocar la etiqueta de analítica** | Un identificador equivocado pierde datos en silencio. Que lo pegue quien tiene la cuenta. |
+| **Una clave secreta que ya se publicó** | Sacarla del código no la des-publica. Primero el dueño la rota en el panel del servicio (una nueva y borra la vieja), y solo después se quita del código o se mueve a donde no llegue al navegador. Tú no puedes rotarla: dile cómo. |
+| **Una `Content-Security-Policy`** | Mal hecha rompe hCaptcha, Web3Forms, Maps o las fuentes, y el sitio se ve bien mientras deja de llegar el formulario. No la escribas como arreglo rápido. |
 
 ---
 
@@ -136,6 +140,80 @@ marcado.
 Que devuelva código `404` de verdad, no `200`. Con tres cosas basta: decir que la
 página no existe, un enlace a la home y el menú del sitio. Cómo se instala depende de
 la plataforma — en un sitio estático suele ser `404.html` en la raíz.
+
+**En Cloudflare Workers el archivo solo no basta.** `not_found_handling` decide qué
+pasa con una ruta que no existe y viene en `"none"`: así el `404.html` no se sirve en
+las rutas que no existen.
+Con `"404-page"` el Worker sirve el `404.html` más cercano con código `404` (doc de
+Cloudflare, "Static Site Generation and custom 404 pages"):
+
+```jsonc
+// wrangler.jsonc
+{
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  }
+}
+```
+
+En Vite, el `404.html` va en `public/` para que llegue a `dist/`. Si el wrangler trae
+`"single-page-application"`, cualquier ruta devuelve el `index.html` con `200` (doc de
+Cloudflare, "Single Page Application"): eso solo hace
+falta cuando la app tiene rutas propias en el navegador (React Router). En una página
+de una sola vista, cámbialo por `"404-page"`. Después de publicar, se comprueba con
+`curl -sI https://tusitio.com/no-existe`.
+
+### `_headers` — los tres básicos
+
+Va en `public/_headers` (Vite lo copia a `dist/`), sin extensión. En un sitio sin
+framework, en la carpeta que publica el Worker (`assets.directory` del wrangler).
+
+```
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
+```
+
+`SAMEORIGIN` y no `DENY`: los dos impiden que otro sitio meta tu página en un marco
+para engañar al visitante, pero `DENY` también bloquea los marcos de tu propio sitio, y
+un menú en PDF incrustado en la página se queda en blanco. Si otro dominio tuyo (un
+portafolio) muestra esta página en un marco, quita esa línea.
+
+Workers static assets lo lee y lo aplica a lo que sirve (doc de Cloudflare, "Headers").
+No aplica a respuestas que genera el código del Worker. Después de publicar, se
+comprueba con `curl -sI https://tusitio.com/`.
+
+### `.assetsignore` — cuando se publica la raíz del proyecto
+
+Solo hace falta si el wrangler dice `"assets": { "directory": "./" }` (o `"."`): así se
+publica la carpeta entera. Wrangler no sube lo que diga `.assetsignore` (doc de
+Cloudflare, "Ignoring assets"), y por su cuenta solo se salta `_headers`, `_redirects` y
+el propio `.assetsignore` (código de wrangler 4.151): un `.git` o un `.env` en esa carpeta
+sí se suben. Con Vite se publica `dist/` y no hace falta. Va en la raíz de esa carpeta,
+con el formato de `.gitignore`:
+
+```
+.git
+.env*
+node_modules
+.wrangler
+```
+
+Después de publicar, se comprueba que `curl -s -o /dev/null -w '%{http_code}' https://tusitio.com/.git/config`
+ya no dé `200`.
+
+### `.gitignore` — que ningún `.env` suba
+
+```
+.env
+.env.*
+!.env.example
+```
+
+Si ya había un `.env` en git, agregarlo aquí no lo saca del historial: ver la fila de
+claves en la tabla de arriba.
 
 ### `og:image`
 

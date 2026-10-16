@@ -9,20 +9,13 @@ cada tanto y que lo que importa es el flujo, no el nombre exacto.
 
 ## Google Search Console
 
-Es donde Google avisa si tu sitio tiene problemas para aparecer en el buscador. Es
-gratis y es lo primero que hay que conectar al lanzar.
+Lo guía el skill **`ponla-en-google`**, paso a paso y con capturas: los ajustes de
+Cloudflare que van antes, la propiedad, la verificación, el sitemap y la indexación.
+En el reporte basta una línea: "Cuando tengas tu dominio, pídele a Claude *ponla en
+Google*". No copies aquí los pasos: viven en ese skill para que no haya dos versiones.
 
-1. Entra a `search.google.com/search-console` con la cuenta de Google del negocio.
-2. Agrega una propiedad. Si tienes acceso al dominio, elige **Dominio**: cubre www,
-   sin www, http y https de una vez. Si no, elige **Prefijo de URL** y pega la
-   dirección exacta con la que se ve tu sitio.
-3. Verifica que es tuyo. Para *Dominio* se hace agregando un registro TXT donde
-   compraste el dominio; para *Prefijo de URL* puedes subir un archivo o pegar una
-   etiqueta en el `<head>`.
-4. Entra a **Sitemaps** y pega la dirección de tu sitemap (normalmente
-   `tusitio.com/sitemap.xml`). Esto es lo que hace que Google encuentre tus páginas
-   sin esperar a tropezarse con ellas.
-5. Vuelve en una semana. Antes no hay datos que ver.
+Con un link de `workers.dev` todavía no aplica. La propiedad de tipo Dominio necesita
+un dominio propio, verificado con un registro DNS.
 
 ## Google Analytics 4
 
@@ -36,6 +29,30 @@ configurada son dos cosas distintas: el checkup ve la primera, nunca la segunda.
    plataforma si es WordPress, Shopify, Wix o Squarespace.
 4. Comprueba en **Tiempo real** que te ves a ti mismo entrando. Si no apareces, la
    etiqueta no está donde crees.
+
+## hCaptcha activado en Web3Forms
+
+El captcha en la página no basta. Web3Forms pide activarlo también en el formulario
+de su panel para que lo exija en cada envío; sin eso, un bot que se salte la página
+manda igual.
+
+1. Entra al panel de Web3Forms con el correo con el que sacaste la access key.
+2. Abre tu formulario y busca la opción contra spam (en su documentación se llama
+   *Block Spam*).
+3. Elige **hCaptcha** y guarda.
+4. Manda una prueba desde tu página resolviendo el captcha. Tiene que llegarte.
+
+## La llave de Google, restringida
+
+Solo si el sitio trae una llave de Maps o de Firebase (empieza con `AIza`). Va en el
+navegador a propósito, pero sin restricción la puede usar cualquiera y Google dice
+que el cobro por abuso es del dueño de la llave. En la consola de Google Cloud, en
+**Credenciales**, edítala: en las restricciones de aplicación elige **sitios web** con tu
+dominio, y en las restricciones de API deja solo las que usa la página (por ejemplo,
+Maps JavaScript API).
+
+Una llave de **Gemini** también empieza con `AIza` y no entra aquí: esa nunca va en el
+navegador, ni restringida. Es del bloque 1 (`checks.md`).
 
 ## Que las reseñas sean reales
 

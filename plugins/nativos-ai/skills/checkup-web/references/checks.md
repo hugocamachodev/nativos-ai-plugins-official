@@ -3,7 +3,8 @@
 El escaneo entrega observaciones. Aquí se convierten en hallazgos. Cada fila dice de
 dónde sale el dato, para que el reporte pueda citar su fuente sin inventarla.
 
-Las columnas: **Dónde mirar** es el campo del JSON de `site-scan.mjs`. **Bloque** es
+Las columnas: **Dónde mirar** es el campo del resumen que entrega `site-scan.mjs`, la
+salida sin `--full`. Lo que solo trae `--full` no se cita aquí. **Bloque** es
 dónde cae en el reporte (`references/reporte.md`): 1 = está roto, 2 = te falta,
 3 = no aplica, 4 = lo tienes que hacer tú.
 
@@ -16,12 +17,24 @@ Solo lo de esta tabla justifica el tono firme. Todo lo demás se recomienda.
 | Qué | Dónde mirar | Cómo se juzga |
 |---|---|---|
 | **`noindex` olvidado** | `pages[].noindex`, `site.robotsTxt.disallowAll`, y en un proyecto con framework también `middleware.ts` y `next.config.ts` | En un sitio publicado, un `noindex` de la etapa de desarrollo lo borra de Google. Igual `Disallow: /` en robots.txt. Es el hallazgo más caro de todos: el sitio existe y nadie lo encuentra, y puede pasar meses así porque desde el navegador se ve perfecto. Si el sitio todavía no se publica, es correcto tenerlo — pregunta antes de acusar. |
-| **Enlaces internos rotos** | `links.broken` | Cada uno manda al visitante a un callejón sin salida. Nombra la URL rota **y desde qué páginas se enlaza** (`linkedFrom`), que es donde se arregla. **`servedFallback: true` no es una condena**: el servidor local devolvió la home, y esa ruta puede estar redirigida con 301 en producción. Contrástala con `_redirects`, `netlify.toml`, `vercel.json` o `.htaccess` antes de reportarla. |
-| **Formulario que no manda a ningún lado** | `pages[].forms[].destino` | Se ve perfecto, el visitante lo llena, y no llega nada. `destino` dice qué se pudo ver, no qué concluir: `action`, `vendor-en-tag`, `onsubmit`, `vendor-en-pagina`, `handler-en-javascript`, `no-visible`. **`no-visible` NO significa muerto** — en React, Vue o Next el destino vive en el bundle. Antes de acusar, abre el código del formulario y comprueba dos cosas: adónde manda, y si eso depende de una variable de entorno que podría no existir al construir (fase 4.5 de SKILL.md). Si no puedes comprobarlo, escríbelo como "revisa que este formulario llegue a algún lado", no como acusación. |
+| **Enlaces internos rotos** | `links.broken` | Cada uno manda al visitante a un callejón sin salida. Nombra la URL rota **y desde qué páginas se enlaza** (`linkedFrom`), que es donde se arregla. **`servedFallback: true` no es una condena**: el servidor local devolvió la home, y esa ruta puede estar redirigida con 301 en producción. Contrástala con `_redirects`, `netlify.toml`, `vercel.json`, `.htaccess` o el `wrangler.jsonc` antes de reportarla. |
+| **Formulario que no manda a ningún lado** | `pages[].formularios[].destino` | Se ve perfecto, el visitante lo llena, y no llega nada. `destino` dice qué se pudo ver, no qué concluir: `action`, `vendor-en-tag`, `onsubmit`, `vendor-en-pagina`, `handler-en-javascript`, `no-visible`. **`no-visible` NO significa muerto** — en React, Vue o Next el destino vive en el bundle. Antes de acusar, abre el código del formulario y comprueba dos cosas: adónde manda, y si eso depende de una variable de entorno que podría no existir al construir (fase 4.5 de SKILL.md). Si no puedes comprobarlo, escríbelo como "revisa que este formulario llegue a algún lado", no como acusación. |
 | **Texto de plantilla en producción** | `pages[].placeholders` **y la fase 4.5** | "Lorem ipsum", `tu@correo.com`, `123-456-7890`, corchetes sin llenar. Cita la página y el marcador. **La lista de palabras es el piso, no el techo**: el texto de plantilla que sale más caro no se parece a "Lorem ipsum" — son los servicios, la ciudad o los precios de otro negocio que se quedaron del andamio, y están perfectamente escritos. Contrasta lo que dice el contenido con el negocio que identificó el perfil: si el sitio es de Arteaga y la página ofrece paseos en Valle de Bravo, ese es el hallazgo, y ningún regex lo encuentra. |
 | **Botones que no llevan a nada** | `links.emptyHrefs` | Un `href="#"` en un botón real es un clic que no hace nada. Algunos son legítimos (abren un menú); mira el contexto antes de contarlo. |
-| **Soft 404** | `site.notFound.soft404`, `measurable` | Una ruta inexistente que responde `200`: Google la trata como página real y la indexa vacía. **Si `measurable` es `false`, no hay hallazgo**: el sitio se sirvió con un servidor de desarrollo que devuelve la home para cualquier ruta, y eso no dice nada del sitio publicado. Búscalo en la configuración del hosting (`_redirects`, `netlify.toml`, `vercel.json`, `.htaccess`). |
+| **Soft 404** | `site.notFound.soft404`, `measurable` | Una ruta inexistente que responde `200`: Google la trata como página real y la indexa vacía. **Si `measurable` es `false`, no hay hallazgo**: el sitio se sirvió con un servidor de desarrollo que devuelve la home para cualquier ruta, y eso no dice nada del sitio publicado. Búscalo en la configuración del hosting (`_redirects`, `netlify.toml`, `vercel.json`, `.htaccess`, `not_found_handling` en `wrangler.jsonc`). En Workers, `"single-page-application"` devuelve la home con `200` para cualquier ruta: eso es un soft 404 en el sitio publicado. |
 | **Anclas rotas** | `pages[].brokenAnchors` | Un `#seccion` que no corresponde a ningún `id` de la página. En un sitio de una sola página es el enlace roto más probable, y ninguna verificación por código HTTP lo ve. |
+| **Clave secreta a la vista** | `seguridad.clavesConForma`, y en el código la fase 4.6 de SKILL.md | Cualquiera que abra la página puede copiarla y usarla a nombre del dueño. Son secretos los tipos `openai`, `anthropic`, `stripe-secreta`, `supabase-secreta`, `aws`, `github`, `slack`, `slack-webhook`, `discord-webhook`, `telegram`, `sendgrid` y `llave-privada`; una `google-api` cuando `marcas` trae `gemini` (ver la fila de la llave de Google), y cualquier `VITE_*` que guarde una llave de un servicio que cobra. **Quitarla del código no basta**: ya se publicó, así que primero se rota (una nueva en el panel del servicio y se borra la vieja) y después se saca del código. Nunca la cites completa: usa `muestra`. Los tipos que van a la vista a propósito están en la sección de seguridad. |
+| **`.env` publicado o en git** | `seguridad.archivosExpuestos`, `seguridad.archivosEnCarpeta`, y en el código el comando 2 de la fase 4.6 | Un `/.env` o `/.git/config` que el sitio publicado entrega se descarga como cualquier archivo. Un `.env` que pasó por git vive en el historial aunque hoy ya no esté. En los dos casos, lo que tenga se rota primero. Después, el `.env` se saca de la carpeta que se publica, y el `.git` se excluye con `.assetsignore` (plantilla en `arreglos.md`). **Nunca le digas que borre la carpeta `.git`**: es su repositorio. **`archivosEnCarpeta` no es esto todavía**: dice qué hay en la carpeta que se sirvió en local, no qué se publicó. Solo es bloque 1 si el wrangler publica esa misma carpeta (`assets.directory` en `"./"` o `"."`) y `.assetsignore` no los excluye. Si publica `dist` o `public`, no se suben y no hay hallazgo. |
+
+**Datos de muestra puestos a propósito.** Si quien pide el checkup dice que el sitio es
+una demo, una plantilla o material de clase, los datos de relleno (teléfonos `0000`, un
+correo `.example`, clientes de muestra, un WhatsApp sin número) siguen en el bloque 1,
+porque un visitante real no podría contactar a nadie, pero **sin tono firme**: un solo
+hallazgo, "datos de muestra que se cambian antes de publicar de verdad", con dónde está
+cada uno y sin explicar uno por uno por qué está mal. Lo decide lo que dijo la persona,
+no la forma del dato: en un sitio real, un teléfono `0000` está roto y se dice firme. El
+escaneo no los encuentra (`placeholders` busca `example.com`, no el dominio `.example`):
+salen de leer la página.
 
 ---
 
@@ -45,7 +58,7 @@ Solo lo de esta tabla justifica el tono firme. Todo lo demás se recomienda.
 | Título único y con sentido | `cross.duplicateTitles`, `pages[].title` | Dos páginas con el mismo título compiten entre ellas en Google. La longitud es una **observación**: Google recorta por ancho en pixeles y a veces reescribe el título. Lo que importa es si dice algo distinto y cierto de esa página. Nunca reportes "fuera de 50–60 caracteres" como una falla. |
 | Descripción única | `cross.duplicateDescriptions` | Igual. No es un factor de posicionamiento, es lo que decide el clic. |
 | Un solo H1, distinto del título | `pages[].h1`, `cross.titleEqualsH1` | Cero H1 es un hallazgo real: el visitante y el buscador no saben de qué va la página. Varios H1 son válidos en HTML5 pero suelen delatar que los encabezados se eligieron por tamaño de letra. Que el H1 repita el título palabra por palabra es una oportunidad perdida, no un error. |
-| Jerarquía sin saltos | `pages[].headings` | Un `h2 → h4` significa que se eligió el encabezado por cómo se ve, no por lo que es. Molesta a quien navega con lector de pantalla. |
+| Jerarquía sin saltos | `pages[].saltosJerarquia`, `pages[].encabezados` | Un `h2 → h4` significa que se eligió el encabezado por cómo se ve, no por lo que es. Molesta a quien navega con lector de pantalla. |
 | `og:image` | `pages[].ogImage` | Sin ella, compartir el enlace en WhatsApp o LinkedIn muestra una caja gris. Es de los arreglos con mejor relación esfuerzo/resultado. |
 | Favicon | `pages[].favicon`, `site.faviconAtRoot` | Un segundo de trabajo y se nota en cada pestaña. **Son dos campos distintos y hay que leer los dos**: `favicon: true` con `faviconAtRoot: false` significa que sí hay favicon —enlazado desde el `<head>`, normalmente un SVG— y solo falta el `.ico` en la raíz que buscan algunos rastreadores viejos. Reportar "no tienes favicon" en ese caso es falso. |
 | `lang` en `<html>` | `pages[].lang` | Sin él, los lectores de pantalla leen español con pronunciación inglesa y los traductores se confunden. |
@@ -56,17 +69,16 @@ Solo lo de esta tabla justifica el tono firme. Todo lo demás se recomienda.
 
 | Qué | Dónde mirar | Cómo se juzga |
 |---|---|---|
-| `alt` | `pages[].images[].alt` | `null` = falta el atributo. `""` = presente y vacío, que es lo correcto para una imagen decorativa. No los confundas. El texto describe lo que la imagen aporta, no repite el nombre del archivo. |
-| Nombre del archivo | `pages[].images[].nombreReal` | `IMG_1234.jpg`, `DSC_0042`, `captura-de-pantalla`, `imagen-final-final-2`. Google usa el nombre como pista. Usa `nombreReal` y no `src`: `next/image` y los CDN sirven `/_next/image?url=%2Ffotos%2FIMG_1234.jpg` y esconden el nombre dentro de un parámetro. Cambiarlo en un sitio publicado también rompe enlaces: mismo cuidado que con las URLs. |
-| Peso | `images.measured[].bytes` | Una foto de más de un megabyte tarda en un celular con datos. `images.unweighable` lista las que no declararon tamaño e `images.remote` las que viven en otro dominio (un CDN, Unsplash): de ninguna de las dos se puede opinar, y **se nombran** en vez de desaparecer del conteo. Sin `Content-Length` no hay número, y sin número no hay hallazgo. |
-| Rotas | `images.broken` | Referenciadas y no existen. Bloque 1 si son visibles en la página principal. Incluye las que traen `servedFallback: true`: el servidor devolvió el `index.html` en lugar de la imagen, y su `type` lo delata (`text/html`). Cuando eso pasa, `bytes` no significa nada y por eso viene en `null`. |
+| `alt` | `pages[].imagenes` (`sinAlt`, `altVacio`, `ejemplosSinAlt`) | `sinAlt` = les falta el atributo. `altVacio` = lo traen vacío, que es lo correcto para una imagen decorativa. No los sumes. `ejemplosSinAlt` nombra hasta cinco de las que no lo traen. El texto describe lo que la imagen aporta, no repite el nombre del archivo. |
+| Nombre del archivo | `pages[].imagenes.nombresGenericos` | `IMG_1234.jpg`, `DSC_0042`, `captura-de-pantalla`, `imagen-final-final-2`. Google usa el nombre como pista. El escaneo ya saca el nombre real aunque `next/image` o un CDN lo escondan en un parámetro (`/_next/image?url=%2Ffotos%2FIMG_1234.jpg`), y lista hasta cinco. Cambiarlo en un sitio publicado también rompe enlaces: mismo cuidado que con las URLs. |
+| Peso | `images.pesadas` (`url`, `kb`) | Las que pasan de 500 KB, de la más pesada a la más ligera. Ese corte es criterio de la casa, no un estándar: una foto así ya tarda en un celular con datos, y el hallazgo es el peso en `kb`, no el haber cruzado la raya. `images.sinPesoDeclarado` cuenta las que no declararon tamaño, `images.remotas` las que viven en otro dominio (un CDN, Unsplash; `ejemplosRemotas` nombra hasta cinco) e `images.noMedidas` las que pasaron del tope. De ninguna se puede opinar, y **se dice cuántas** en vez de desaparecerlas del conteo. Sin `Content-Length` no hay número, y sin número no hay hallazgo. |
+| Rotas | `images.rotas` | Referenciadas y no existen. Bloque 1 si son visibles en la página principal. Incluye las que traen `servedFallback: true`: el servidor devolvió el `index.html` (llegó como `text/html`) en lugar de la imagen. |
 
 ### Confianza y conversión
 
 | Qué | Dónde mirar | Cómo se juzga |
 |---|---|---|
-| Página 404 propia | `site.notFound.looksCustom`, `measurable` | La del servidor es una pared blanca; una propia devuelve al visitante al sitio. **Con `measurable: false` no se puede afirmar ni que la hay ni que no**: el servidor local devolvió la home. Revisa si existe el archivo (`404.html`, `not-found.tsx`, `404.astro`) y la configuración del hosting. |
-| Política de privacidad | Buscar en `pages[].links` y en el pie | **Obligatoria si el sitio recoge cualquier dato** — un formulario, un newsletter, analítica con cookies. En México la LFPDPPP obliga a poner el aviso a la vista en el momento en que se recaban los datos, con multa: para un sitio mexicano con formulario eso no es una recomendación de diseño, y conviene decirlo así. Si no recoge nada, va al bloque 3. Ojo con el caso peor: un enlace "Política de privacidad" con `href="#"`, que promete la política y no la tiene. |
+| Página 404 propia | `site.notFound.looksCustom`, `measurable` | La del servidor es una pared blanca; una propia devuelve al visitante al sitio. **Con `measurable: false` no se puede afirmar ni que la hay ni que no**: el servidor local devolvió la home. Revisa si existe el archivo (`404.html`, `not-found.tsx`, `404.astro`) y la configuración del hosting: en Workers, sin `not_found_handling: "404-page"` el `404.html` no se usa (`arreglos.md`). |
 | Página o estado de gracias | URL con `gracias`/`thank`, o el estado tras enviar | Sirve para dos cosas: confirmarle al visitante que sí llegó, y poder medir cuántos completaron. En un one-pager basta el mensaje de confirmación. |
 | Datos estructurados | `pages[].jsonLdTypes` | El tipo que corresponde al perfil (ver `perfil.md`). `__json-invalido__` significa que el JSON-LD está mal formado y no lo lee nadie — eso sí es bloque 1. |
 | Migajas de pan | `signals`, HTML | Solo con jerarquía real de secciones. En un sitio plano no aportan. |
@@ -78,7 +90,26 @@ Solo lo de esta tabla justifica el tono firme. Todo lo demás se recomienda.
 | Botón de compartir | `signals.shareButton` | Tiene sentido en contenido; en una página de servicios, casi ninguno. |
 | Mapa | `signals.mapEmbed` | Solo negocio local. |
 | Etiqueta de analítica | `signals.analytics` | Presencia de GA4, GTM, Meta Pixel o Clarity. Que la propiedad esté bien configurada y recibiendo datos **no se puede ver desde fuera**: bloque 4. |
-| HTTPS y variante www | `site.https`, `site.wwwVariant` | Si las dos variantes cargan y ninguna redirige a la otra, Google ve dos sitios y reparte la autoridad entre ambos. |
+| HTTPS y variante www | `site.https`, `site.wwwVariant` | Si las dos variantes cargan y ninguna redirige a la otra, Google ve dos sitios y reparte la autoridad entre ambos. No es código: se arregla en Cloudflare, y lo guía el skill `ponla-en-google`. |
+
+---
+
+## Seguridad — sitio estático (Vite, React o HTML en Cloudflare)
+
+Para una página sin login, sin base de datos y sin pagos. Lo grave (una clave secreta
+a la vista, un `.env` publicado) está en la tabla del bloque 1. Aquí va el resto, y
+cada fila dice en qué bloque cae.
+
+| Qué | Dónde mirar | Cómo se juzga |
+|---|---|---|
+| **Claves que van a la vista a propósito** | `seguridad.marcas` (`web3forms`, `hcaptcha`, `turnstile`), `clavesConForma` con tipo `stripe-publicable` o `supabase-publicable` | **No es hallazgo.** Dilo en una línea, pegada a la buena noticia del bloque 1 (ver `reporte.md`), porque quien ve una llave en su código se asusta. La access key de Web3Forms es pública por diseño: su FAQ dice "Access key is public" y que con ella "they can only send you emails". La sitekey de hCaptcha también: "Use the sitekey in your frontend; keep the secret on your server" (docs.hcaptcha.com). Las publicables de Stripe y Supabase se llaman así porque van en el navegador. Lo que nunca va en la página es la llave *secreta* de cualquier servicio. |
+| Llave de Google (`google-api`) | `clavesConForma` y `marcas` | **Depende de a qué llama la página**, porque Maps, Firebase y Gemini usan llaves que empiezan igual (`AIza`). **Si `marcas` trae `gemini`, es bloque 1**: la página habla con la IA de Google desde el navegador, y Google dice "Never expose keys client-side in production" y pide "a backend proxy server" (ai.google.dev/gemini-api/docs/api-key). El arreglo es mover esa llamada a un Worker, que no es un arreglo rápido: dilo y no lo hagas sin plan. **Si no, es de Maps o Firebase**, que la usan en el navegador a propósito: bloque 4, restringirla. Google: "You are financially responsible for charges caused by abuse of unrestricted API keys" (developers.google.com/maps/api-security-best-practices). Si no sabes a qué servicio va, búscalo en el código antes de decidir. |
+| Variables `VITE_*` con un secreto | En el código, fase 4.6 de SKILL.md | Según la doc de Vite, "Variables prefixed with `VITE_` will be exposed in client-side source code after Vite bundling". Si guarda la llave de un servicio que cobra o un SECRET, PRIVATE, PASSWORD o TOKEN, es bloque 1 aunque la página no se haya publicado, porque la próxima build la publica. **`KEY` en el nombre no basta para acusar**: `VITE_WEB3FORMS_KEY` es la access key pública. Decide por el servicio, no por la palabra. |
+| `.env` cubierto por `.gitignore` | El comando 1 de la fase 4.6 | Se revisa **aunque hoy no exista el `.env`**: el día que alguien cree uno con una llave, el siguiente commit la sube. Bloque 2, dicho con firmeza. Si además el comando 2 lo encuentra en el historial, eso es bloque 1 y este renglón sobra: no lo digas dos veces. `*.local` cubre `.env.local` pero no `.env`. Si `.env.example` documenta una credencial (`*_SECRET`, `*_API_KEY`, `*_SERVICE_ACCOUNT_JSON`), el que copie el ejemplo va a subir una llave privada: mismo hallazgo. |
+| Formulario con protección contra spam | `seguridad.marcas` (`hcaptcha`, `turnstile`, `recaptcha`, `honeypot`); en React, el código del formulario | Sin captcha ni honeypot, un bot puede llenar el formulario una y otra vez y los mensajes reales se pierden entre la basura. Bloque 2. Las marcas se buscan en todo lo que se descargó: dicen que la protección está en el sitio, no en qué formulario. Si hay varios, confírmalo en el código. |
+| hCaptcha activado en el panel de Web3Forms | `marcas` trae `web3forms` y `hcaptcha` | El captcha en la página no basta. Web3Forms: "you need to activate hCaptcha on your form to make it mandatory on each form submissions". Eso solo se ve desde el panel: **bloque 4**, pasos en `manual.md`. |
+| Headers básicos | `seguridad.headers.faltan`; con `headersNoMedidos`, el archivo `_headers` en el código | Bloque 2, como recomendación. `headersNoMedidos` sale cuando se sirvió en local o el sitio no respondió: no es "te faltan". Si `faltan` trae los tres pero el código ya tiene `_headers`, lo más probable es que no se haya publicado todavía. Solo tres: `X-Content-Type-Options`, `Referrer-Policy` y `X-Frame-Options`. Van en un archivo `_headers` en `public/` (plantilla en `arreglos.md`), que Workers static assets aplica a lo que sirve. **No pidas `Content-Security-Policy`**: una mal hecha rompe hCaptcha, Web3Forms, Maps o las fuentes, y nadie se da cuenta hasta que deja de llegar un mensaje. `Strict-Transport-Security` y `Permissions-Policy` se mencionan si faltan, sin exigirlas. Si el proyecto corre código propio en el Worker (`run_worker_first`, SSR), `_headers` no aplica a esas respuestas. |
+| Aviso de privacidad | `grep -il privacidad` sobre el HTML de `--dump-dir` (o el de `audit-cdp` si es SPA), el pie y el formulario | Si un formulario pide nombre, correo o teléfono, recoge datos personales. **En México** la LFPDPPP (texto vigente, última reforma DOF 14-11-2025) dice en su artículo 16, fracción II, que cuando los datos se obtienen por un medio electrónico el aviso se da en modalidad simplificada. Esa versión trae al menos lo de las fracciones I a IV del artículo 15 (quién es el responsable y su domicilio, qué datos, para qué y cómo limitar su uso) y dice dónde se consulta el aviso integral. Fuente: diputados.gob.mx/LeyesBiblio/pdf/LFPDPPP.pdf. Para un sitio mexicano con formulario es bloque 2 dicho con firmeza. **Fuera de México no afirmes nada legal**: di que revise la ley de su país. No redactes el aviso como si fuera asesoría legal. Si el sitio no recoge nada, va al bloque 3. Ojo con el peor caso, un enlace "Aviso de privacidad" con `href="#"`. |
 
 ---
 
@@ -86,10 +117,12 @@ Solo lo de esta tabla justifica el tono firme. Todo lo demás se recomienda.
 
 Nada de esto se ve desde fuera. Pasos en `manual.md`.
 
-Search Console conectado y sin errores · propiedad de Analytics recibiendo datos ·
-sitemap enviado a Search Console · que las reseñas sean de clientes reales · que la
-foto sea del equipo de verdad · que el negocio esté en Google Business Profile ·
-la intención de búsqueda de cada página de contenido, si no la dio.
+Search Console conectado, con el sitemap enviado (lo guía el skill `ponla-en-google`) ·
+propiedad de Analytics recibiendo datos · que las reseñas sean de clientes reales · que
+la foto sea del equipo de verdad · que el negocio esté en Google Business Profile ·
+hCaptcha activado en el panel de Web3Forms, si el formulario es de Web3Forms · la
+llave de Google restringida a su dominio, si el sitio trae una · la intención de
+búsqueda de cada página de contenido, si no la dio.
 
 ---
 
