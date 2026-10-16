@@ -47,8 +47,9 @@ Web3Forms, al 4.
 
 Dos cosas solo de este tema:
 
-- **Las claves públicas a propósito se dicen en una línea, en el bloque 1**, como parte
-  de la buena noticia o junto a la clave secreta si la hay. Quien ve
+- **Las claves públicas a propósito se dicen en una línea, pegada al bloque 1.** No son
+  un hallazgo, así que no entran a la lista de lo roto: van como parte de la buena
+  noticia, o junto a la clave secreta si la hay. Quien ve
   una llave en su código se asusta, y con razón. Que lea que la access key de Web3Forms
   y la sitekey del captcha están hechas para ir en la página.
   > La llave de Web3Forms y la del captcha están a la vista a propósito: así funcionan.

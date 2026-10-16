@@ -157,25 +157,31 @@ pruebas reales, los hallazgos más caros del checkup — y ninguna sale del esca
 | Variables de entorno (`NEXT_PUBLIC_*`, `VITE_*`, `PUBLIC_*`) | La pregunta útil no es "¿falta el `.env`?" —en Vercel o Netlify la variable vive en el panel, no en la carpeta, y decir "te falta el .env" es un regaño, no un hallazgo. La pregunta es **qué hace el código cuando esa variable llega vacía**. Si el resultado es un botón que se ve perfecto y no manda nada (`` `https://wa.me/${telefono \|\| ''}` ``, una rama de envío que el compilador elimina), ese sí es el hallazgo, y hay que decir que se confirma en el panel del hosting. Si dos rutas usan el mismo dato y una avisa mientras la otra falla en silencio, eso también. |
 
 **4.6 · Seguridad.** Para un sitio estático (Vite, React o HTML publicado en Cloudflare
-Workers). Lo del sitio servido ya viene en `seguridad` del escaneo: cadenas con forma de
-llave en el HTML y en el JavaScript que se descarga (`clavesConForma`, siempre
-enmascaradas), servicios y protecciones contra spam que aparecen (`marcas`), un `.env`
-o un `.git` servidos (`archivosExpuestos`) y los headers de seguridad (`headers`, o
-`headersNoMedidos` si se sirvió en local). Con carpeta, cuatro cosas más que solo
-están en el código:
+Workers). Lo del sitio servido ya viene en `seguridad` del escaneo:
+- `clavesConForma`: cadenas con forma de llave en el HTML y en el JavaScript que se
+  descarga, siempre enmascaradas.
+- `marcas`: servicios y protecciones contra spam que aparecen.
+- `archivosExpuestos`: un `.env` o un `.git` que el sitio publicado entrega. Si se sirvió
+  en local sin `--site-url`, sale `archivosEnCarpeta`, que dice qué hay en la carpeta y
+  no qué se publicó.
+- `headers`, o `headersNoMedidos` si se sirvió en local o el sitio no respondió.
+
+Con carpeta, cinco cosas más que solo están en el código. Córrelas en la carpeta de la
+app (donde están su `package.json` o su wrangler), no en la raíz de un monorepo:
 
 ```bash
-# 1 · ¿.env cubierto por .gitignore? Aunque hoy no exista.
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then git check-ignore -q .env && echo cubierto || echo NO-cubierto; else echo no-es-repo; fi
-# 2 · ¿Ya hay un .env dentro de git? Si sale algo, está en el historial.
-git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.example$'
+# 1 · ¿.env cubierto por .gitignore? Aunque hoy no exista, y aunque ya esté versionado.
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then git check-ignore -q --no-index .env && echo cubierto || echo NO-cubierto; else echo no-es-repo; fi
+# 2 · ¿Algún .env pasó por git alguna vez? Lo que salga sigue en el historial aunque hoy ya no esté.
+git log --all --format= --name-only -- '*.env' '*.env.*' 2>/dev/null | sort -u | grep -vE '\.(example|sample|template)$'
 # 3 · Variables que Vite mete al JS publicado. Mira el NOMBRE y a qué servicio va.
-grep -rnoE '(VITE|NEXT_PUBLIC|PUBLIC|REACT_APP)_[A-Z0-9_]+' . --exclude-dir={node_modules,dist,.git} | sort -u
+grep -rhoE '(VITE|NEXT_PUBLIC|PUBLIC|REACT_APP)_[A-Z0-9_]+' . --exclude-dir={node_modules,dist,build,out,.next,.git,.wrangler,.astro} | sort | uniq -c
 # 4 · ¿Existe _headers? En Vite va en public/; sin framework, en la carpeta que publica el Worker.
 ls public/_headers _headers 2>/dev/null
 # 5 · Solo si no se pudo servir y hay dist/: cadenas con forma de llave en lo compilado,
-#     con los mismos prefijos que CLAVES en site-scan.mjs. Sale enmascarado.
-grep -rnoE 'sk-(proj-|ant-)?[A-Za-z0-9_-]{32,}|[rs]k_(live|test)_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{60,}|xox[abprs]-[A-Za-z0-9-]{10,}|SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}|-----BEGIN [A-Z ]*PRIVATE KEY-----|AIza[0-9A-Za-z_-]{35}' dist 2>/dev/null | sed -E 's/^([^:]+:[0-9]+:.{8}).*/\1…/'
+#     con los mismos prefijos que CLAVES en site-scan.mjs. Sale enmascarado, y sin los
+#     "sk-" en minúsculas, que son nombres de clase y no llaves.
+grep -rnoE 'sk-(proj-|ant-)?[A-Za-z0-9_-]{32,}|[rs]k_(live|test)_[A-Za-z0-9]{20,}|sb_secret_[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{60,}|xox[abprs]-[A-Za-z0-9-]{10,}|hooks\.slack\.com/services/[A-Za-z0-9/]{20,}|discord(app)?\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]{20,}|[0-9]{6,10}:[A-Za-z0-9_-]{30,}|SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}|-----BEGIN [A-Z ]*PRIVATE KEY-----(\\n|[[:space:]])+[A-Za-z0-9+/=]{20,}|AIza[0-9A-Za-z_-]{35}' dist 2>/dev/null | grep -vE ':[0-9]+:sk-[a-z_-]+$' | sed -E 's/^([^:]+:[0-9]+:.{8}).*/\1…/'
 ```
 
 `no-es-repo` no es hallazgo: dile que cuando lo haga repositorio, `.gitignore` tiene que
@@ -189,6 +195,8 @@ tabla del bloque 1. Tres reglas que no se negocian:
 - **Hay claves que van a la vista a propósito.** La access key de Web3Forms y la sitekey
   de hCaptcha están hechas para ir en la página. Una variable que se llame
   `VITE_WEB3FORMS_KEY` no es un hallazgo: decide por el servicio, no por la palabra `KEY`.
+  Una que empieza con `AIza` depende de a qué llama la página: Maps sí, Gemini nunca
+  (si `marcas` trae `gemini`, es bloque 1).
 - **Si una clave secreta ya se publicó, quitarla no basta**: hay que rotarla primero.
 
 En React el formulario no está en el HTML: confirma la protección contra spam en el

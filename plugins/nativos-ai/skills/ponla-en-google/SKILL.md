@@ -70,19 +70,27 @@ escaneo exige que sea un sitemap de verdad.
 `robots.txt` con la línea `Sitemap:` y la dirección completa (`https://...`). Google lo
 pide así: la línea "must be a fully qualified URL". Y el robots.txt que pone Cloudflare
 no agrega esa línea. Dile: "Primero pídele a Claude *hazle un checkup a mi página*,
-publica lo que arregle y regresamos." Lo mismo con un `noindex` en la página o un
-`Disallow: /` en robots.txt, porque Google no puede indexar una página que le dice que
-no.
+publica lo que arregle y regresamos." Lo mismo con un `noindex` en la página, que le
+pide a Google no indexarla, o un `Disallow: /` en robots.txt, que no lo deja entrar a
+leerla. Con cualquiera de los dos, pedir la indexación no sirve.
 
 Aprovecha para ver qué pasos de Cloudflare ya están hechos:
 
 ```bash
+curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://<dominio>/
 curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' http://<dominio>/
 curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://www.<dominio>/
 ```
 
-El primero tiene que dar `301` hacia `https://<dominio>/`. El segundo, `301` hacia
-`https://<dominio>/`. El que ya esté bien se dice en una línea y se salta.
+- El primero, la página misma, tiene que dar `200`. **Si da `301` hacia `www`**, ya hay
+  una regla que manda la raíz a `www`. Agregar la del paso 2.2 encima forma un ciclo y
+  la página deja de abrir. En ese caso, primero se borra la regla vieja (o se decide
+  quedarse con `www` y no se crea la nueva).
+- El segundo tiene que dar `301` hacia `https://<dominio>/`.
+- El tercero, `301` hacia `https://<dominio>/`. Un `000` quiere decir que `www` no tiene
+  registro en el DNS, y se crea en el paso 2.2.
+
+El que ya esté bien se dice en una línea y se salta.
 
 ## 2 · La casa en orden, en Cloudflare
 
@@ -96,7 +104,7 @@ que llegue por `http`, en todos los subdominios, y está en el plan gratis. Si l
 no aparece, el modo SSL/TLS está en **Off**. Con Off la opción no se muestra, así que
 primero se cambia el modo.
 
-Compruébalo con el primer `curl` del paso 1: ahora tiene que dar `301` a `https`.
+Compruébalo con el segundo `curl` del paso 1: ahora tiene que dar `301` a `https`.
 
 ### 2.2 · `www` a la raíz
 
@@ -116,9 +124,10 @@ Para que `www.<dominio>` y `<dominio>` no sean dos copias de la misma página.
    - Status code: `301`
    - Preserve query string: encendido
 
-Compruébalo con el segundo `curl` del paso 1: `301` a `https://<dominio>/`. Si `www` estaba
-conectado al Worker y sigue dando `200`, quita `www` de *Domains* en el Worker, crea el
-registro `A` del punto 1 y vuelve a probar.
+Compruébalo con el tercer `curl` del paso 1: `301` a `https://<dominio>/`. Y repite el
+primero: la raíz tiene que seguir dando `200`. Si `www` estaba conectado al Worker y
+sigue dando `200`, quita `www` de *Domains* en el Worker, crea el registro `A` del
+punto 1 y vuelve a probar.
 
 ### 2.3 · Que Cloudflare no le cierre la puerta a Google
 
@@ -133,8 +142,10 @@ AI bot policies*). Pide la captura. Para una página de negocio:
   entrenamiento sin salir de la búsqueda está *Disallow AI Training*.
 - **Agent** como esté. No toca a Google Search.
 
-Si todavía ve el interruptor viejo *Block AI bots*, va apagado: Cloudflare lo está
-retirando y también bloquea a los crawlers mixtos.
+Si todavía ve el interruptor viejo *Block AI bots* encendido, revisa con él cómo quedó
+*Training*. Cloudflare lo está retirando, y su doc dice que desde el 15 de septiembre
+los crawlers mixtos "will also be blocked by all configurations to block AI training,
+including the legacy 'Block AI bots' option".
 
 Si ya estaba bien, dilo como buena noticia. Si estaba en *Block*, explica por qué se
 cambia: es la razón más silenciosa por la que una página bien hecha no sale en Google.
@@ -159,7 +170,10 @@ regresa la página, Google puede ver dos copias.
   `workers.dev`, **Disable** y confirmar. Después del siguiente deploy vuelve a probar
   la dirección, por si se prendió otra vez.
 
-Compruébalo con el mismo `curl`: ya no tiene que regresar la página.
+Compruébalo con el mismo `curl`: ya no tiene que regresar la página. Los links de vista
+previa de cada versión (`*-<worker>.<subdominio>.workers.dev`) siguen vivos aunque se
+apague `workers.dev`, porque son otra cosa. Nadie los enlaza, así que Google difícilmente
+los encuentra. Si los quiere apagar también, en el wrangler va `"preview_urls": false`.
 
 ## 3 · Search Console
 
@@ -171,28 +185,28 @@ pantalla. Nunca con la contraseña del cliente en la tuya.
 
 ### 3.2 · La propiedad de tipo Dominio
 
-Agregar propiedad → **Dominio** → `<dominio>`, sin `https://` y sin `www`. Una propiedad
+**Añadir propiedad** → **Dominio** → `<dominio>`, sin `https://` y sin `www`. Una propiedad
 de tipo Dominio cubre `www`, sin `www`, `http` y `https` de una vez. Pide la captura de
 la pantalla de verificación.
 
 ### 3.3 · Verificar con DNS
 
-- **Si en la lista de proveedores aparece Cloudflare** con un botón para empezar la
-  verificación, úsalo: inicia sesión en Cloudflare y autoriza. Que aparezca no está
+- **Si en la lista de proveedores aparece Cloudflare**, que lo elija y pique **Iniciar
+  verificación** (*Start verification*): inicia sesión en Cloudflare y autoriza. Que aparezca no está
   confirmado en ninguna fuente, así que no lo prometas antes de ver la captura.
-- **Si no aparece**, que elija la opción para cualquier proveedor (*Any DNS provider*) y
+- **Si no aparece**, que elija **Cualquier proveedor de DNS** (*Any DNS provider*) y
   copie el registro TXT (empieza con `google-site-verification=`). En Cloudflare: DNS →
   Records → **Add record**, tipo `TXT`, nombre `@`, y en el contenido el valor completo
   → Save. Un TXT nunca lleva nube naranja.
 
-Antes de que pique *Verify*, confirma que el registro ya se ve:
+Antes de que pique **Verificar**, confirma que el registro ya se ve:
 
 ```bash
 dig +short TXT <dominio>
 # en Windows: nslookup -type=TXT <dominio>
 ```
 
-Cuando salga el `google-site-verification=...`, que pique **Verify**. Si falla, es normal
+Cuando salga el `google-site-verification=...`, que pique **Verificar** (*Verify*). Si falla, es normal
 que tarde: Google dice que un registro manual "can take up to two or three days". Que
 vuelva a intentarlo después.
 
@@ -203,20 +217,20 @@ verificación.
 ### 3.4 · Si el sitio es de un cliente
 
 La propiedad queda en la cuenta del cliente. Ya verificada, el cliente lo agrega a él
-(no al revés): Configuración (*Settings*) → **Usuarios y permisos** → **Agregar usuario**
-→ su correo → permiso **Completo** (*Full*). Con permiso completo puede enviar el sitemap
-y usar la inspección de URL. El control se queda con el cliente.
+(no al revés): **Ajustes** (*Settings*) → **Usuarios y permisos** → **Añadir usuario** →
+su correo → permiso **Usuario con acceso total** (*Full user*). Con ese permiso puede
+enviar el sitemap y usar la inspección de URLs. El control se queda con el cliente.
 
 ### 3.5 · Enviar el sitemap
 
-Sitemaps → en *Agregar un sitemap nuevo* pega `https://<dominio>/sitemap.xml` → Enviar.
+**Sitemaps** → en **Añadir un sitemap** pega `https://<dominio>/sitemap.xml` → **Enviar**.
 Pide la captura del estado. Si dice que no se pudo leer, comprueba tú que el sitemap
 abre como XML (el escaneo del paso 1) y que vuelva a ver más tarde. Google dice que "the
 sitemap should be fetched immediately", pero rastrear lo que lista lleva más tiempo.
 
 ### 3.6 · Pedir la indexación, una sola vez
 
-Arriba, en la barra de inspección, pega `https://<dominio>/`. Que pique **Probar URL
+Arriba, en **Inspección de URLs**, pega `https://<dominio>/`. Que pique **Probar URL
 publicada** (*Test live URL*) y, si sale bien, **Solicitar indexación** (*Request
 indexing*). **Una vez.** Google: "requesting a recrawl multiple times for the same URL
 won't get it crawled any faster", y hay un límite diario de solicitudes.
@@ -257,7 +271,8 @@ búsqueda `site:<dominio>` también sirve, pero no siempre muestra todo.
 
 ## Antes de terminar
 
-- [ ] `http://<dominio>/` da `301` a `https`, y `https://www.<dominio>/` da `301` a la raíz.
+- [ ] `https://<dominio>/` da `200`, `http://<dominio>/` da `301` a `https`, y
+      `https://www.<dominio>/` da `301` a la raíz.
 - [ ] El sitemap abre como XML y robots.txt tiene la línea `Sitemap:` con la dirección completa.
 - [ ] Las políticas de bots: Search en *Allow*, Training sin *Block*. Lo viste en la captura.
 - [ ] `workers.dev` ya no regresa la página, o él decidió dejarlo con su motivo.

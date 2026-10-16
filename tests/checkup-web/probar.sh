@@ -73,8 +73,11 @@ kill "$SPA" 2>/dev/null || true; SPA=""
 # estudiante en la primera orden.
 sitemap_para "http://localhost:$PORT2"
 node "$SCAN" --url "http://localhost:$PORT2/" 2>/dev/null > "$HERE/.scan-resumen.json" || true
+# Con --site-url, los headers y el sondeo de /.env van al sitio publicado. Uno que no
+# responde no puede acusar seis headers faltantes ni el .env de la carpeta.
+node "$SCAN" --url "http://localhost:$PORT2/" --site-url "https://no-existe-nativos.invalid/" 2>/dev/null > "$HERE/.scan-sin-respuesta.json" || true
 
-python3 - "$HERE/.scan-simple.json" "$HERE/.scan-fallback.json" "$HERE/.scan-spa.json" "$HERE/.spa-rendered.html" "$HERE/.scan-resumen.json" <<'ENDPY'
+python3 - "$HERE/.scan-simple.json" "$HERE/.scan-fallback.json" "$HERE/.scan-spa.json" "$HERE/.spa-rendered.html" "$HERE/.scan-resumen.json" "$HERE/.scan-sin-respuesta.json" <<'ENDPY'
 import json, sys, os
 
 def revisar(ruta, camino):
@@ -110,7 +113,13 @@ def revisar(ruta, camino):
         'sigue el import()':        any(k['tipo'] == 'anthropic' for k in d['seguridad']['clavesConForma']),
         'llaves enmascaradas':      all('LLAVE-REAL' not in k['muestra'] for k in d['seguridad']['clavesConForma']),
         'web3forms y hcaptcha':     {'web3forms', 'hcaptcha'} <= set(d['seguridad']['marcas']),
-        '.env expuesto':            d['seguridad']['archivosExpuestos'] == ['/.env'],
+        # Servido en local, el .env está en la carpeta: eso no dice que esté publicado.
+        '.env en carpeta, no publicado': d['seguridad'].get('archivosEnCarpeta') == ['/.env'] and 'archivosExpuestos' not in d['seguridad'],
+        'gemini en las marcas':     'gemini' in d['seguridad']['marcas'],
+        # Ni el nombre de clase "sk-loading-…" ni el encabezado PEM suelto son llaves.
+        'sin falsas alarmas':       [k['tipo'] for k in d['seguridad']['clavesConForma']] == ['openai', 'anthropic'],
+        # app.js y pedazo.js se leen; el import() de segundo nivel se cuenta, no se sigue.
+        'cuenta lo leido':          d['seguridad']['jsRevisados'] == 2 and d['seguridad']['jsSinRevisar'] == 1,
         'headers no medidos local': bool(d['seguridad'].get('headersNoMedidos')),
     }
     # Lo que solo es medible según el camino. Un servidor con fallback no puede decir
@@ -172,12 +181,26 @@ resumen = {
     'conserva los duplicados':    len(r['cross']['duplicateTitles']) == 1,
     'conserva la huerfana':       len(r['cross']['orphans']) == 1,
     'conserva la llave':          any(k['tipo'] == 'openai' for k in r['seguridad']['clavesConForma']),
+    'tapa la llave de una imagen': 'ESTONOESREAL1234567890' not in json.dumps(r) and any('token=' in u for u in r['images'].get('ejemplosRemotas', [])),
 }
 print('--- resumen (lo que el skill lee): %d KB vs %d KB del volcado' % (res_sz // 1024, full_sz // 1024))
 for k, v in resumen.items():
     print(('  ok    ' if v else '  FALLA ') + k)
 total += len(resumen)
 total_fallos += [f'resumen: {k}' for k, v in resumen.items() if not v]
+print()
+
+# --- un sitio publicado que no responde ---
+s6 = json.load(open(sys.argv[6]))['seguridad']
+sinresp = {
+    'headers no medidos':         bool(s6.get('headersNoMedidos')) and 'headers' not in s6,
+    'sondea el publicado':        s6.get('archivosExpuestos') == [] and 'archivosEnCarpeta' not in s6,
+}
+print('--- sitio publicado que no responde (--site-url a un dominio que no existe)')
+for k, v in sinresp.items():
+    print(('  ok    ' if v else '  FALLA ') + k)
+total += len(sinresp)
+total_fallos += [f'sin respuesta: {k}' for k, v in sinresp.items() if not v]
 print()
 
 if total_fallos:

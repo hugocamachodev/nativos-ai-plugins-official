@@ -44,11 +44,15 @@ manda igual.
 
 ## La llave de Google, restringida
 
-Solo si el sitio trae una llave que empieza con `AIza` (Maps, Firebase). Va en el
+Solo si el sitio trae una llave de Maps o de Firebase (empieza con `AIza`). Va en el
 navegador a propósito, pero sin restricción la puede usar cualquiera y Google dice
-que el cobro por abuso es del dueño de la llave. En la consola de Google Cloud,
-en **Credenciales**, edítala y en las restricciones de aplicación elige **sitios web**
-con tu dominio.
+que el cobro por abuso es del dueño de la llave. En la consola de Google Cloud, en
+**Credenciales**, edítala: en las restricciones de aplicación elige **sitios web** con tu
+dominio, y en las restricciones de API deja solo las que usa la página (por ejemplo,
+Maps JavaScript API).
+
+Una llave de **Gemini** también empieza con `AIza` y no entra aquí: esa nunca va en el
+navegador, ni restringida. Es del bloque 1 (`checks.md`).
 
 ## Que las reseñas sean reales
 

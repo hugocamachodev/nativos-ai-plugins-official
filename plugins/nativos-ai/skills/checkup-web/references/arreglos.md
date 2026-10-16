@@ -16,7 +16,8 @@ Cosas que se agregan, no que se mueven. Ninguna rompe un enlace existente.
 `robots.txt` · `sitemap.xml` · `llms.txt` · `alt` faltantes · títulos y descripciones
 únicos · datos estructurados · página 404 · `og:image` · favicon · `lang` en `<html>` ·
 `viewport` · quitar un `noindex` olvidado · `noindex` al paginador · `_headers` con los
-tres headers básicos · `.env` en `.gitignore`.
+tres headers básicos · `.env` en `.gitignore` · `.assetsignore` cuando el wrangler
+publica la raíz del proyecto.
 
 ## No se aplica nunca sin decir el costo
 
@@ -172,12 +173,36 @@ framework, en la carpeta que publica el Worker (`assets.directory` del wrangler)
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  X-Frame-Options: DENY
+  X-Frame-Options: SAMEORIGIN
 ```
+
+`SAMEORIGIN` y no `DENY`: los dos impiden que otro sitio meta tu página en un marco
+para engañar al visitante, pero `DENY` también bloquea los marcos de tu propio sitio, y
+un menú en PDF incrustado en la página se queda en blanco. Si otro dominio tuyo (un
+portafolio) muestra esta página en un marco, quita esa línea.
 
 Workers static assets lo lee y lo aplica a lo que sirve (doc de Cloudflare, "Headers").
 No aplica a respuestas que genera el código del Worker. Después de publicar, se
 comprueba con `curl -sI https://tusitio.com/`.
+
+### `.assetsignore` — cuando se publica la raíz del proyecto
+
+Solo hace falta si el wrangler dice `"assets": { "directory": "./" }` (o `"."`): así se
+publica la carpeta entera. Wrangler no sube lo que diga `.assetsignore` (doc de
+Cloudflare, "Ignoring assets"), y por su cuenta solo se salta `_headers`, `_redirects` y
+el propio `.assetsignore` (código de wrangler 4.151): un `.git` o un `.env` en esa carpeta
+sí se suben. Con Vite se publica `dist/` y no hace falta. Va en la raíz de esa carpeta,
+con el formato de `.gitignore`:
+
+```
+.git
+.env*
+node_modules
+.wrangler
+```
+
+Después de publicar, se comprueba que `curl -s -o /dev/null -w '%{http_code}' https://tusitio.com/.git/config`
+ya no dé `200`.
 
 ### `.gitignore` — que ningún `.env` suba
 
