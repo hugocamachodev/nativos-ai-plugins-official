@@ -16,6 +16,20 @@ Listo. No tienes que descargar nada ni tocar ninguna carpeta.
 
 ## Qué trae
 
+### ⏱️ Medir qué tan rápido carga tu página
+
+Claude abre tu página en Chrome como si fuera un celular, la mide por dentro y te dice
+qué tarda en aparecer, cuánto pesan las imágenes y qué la está frenando. Es la herramienta
+del equipo de Chrome ([chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp)),
+y aquí viene con el envío de datos a Google apagado: ni las estadísticas de uso ni la
+dirección de tu página salen de tu computadora. Necesitas tener Google Chrome instalado.
+
+**Solo díselo con tus palabras:**
+
+> mide qué tan rápido carga mi página en un celular
+>
+> ¿qué está frenando mi página?
+
 ### 🩺 Checkup de tu sitio antes de publicarlo
 
 Recorre todas tus páginas y te dice qué está roto, qué te falta y qué solo puedes
