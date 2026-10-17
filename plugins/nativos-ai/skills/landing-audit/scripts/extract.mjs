@@ -326,6 +326,83 @@ export const EXTRACTORS = {
     };
   `,
 
+  // ---------- checkup-web: sideways scroll on a phone ----------
+  // Run it at a narrow viewport. Only elements that WIDEN THE PAGE count: fixed
+  // ones (and what lives inside them) never do, and neither does anything clipped
+  // by an ancestor whose overflow-x is not visible (a carousel, a clipped section).
+  // html and body are left out of that walk on purpose: overflow-x hidden there
+  // hides the scroll but still cuts the content, and that is reported, not masked.
+  mobileOverflow: SHARED + `
+    const vw = document.documentElement.clientWidth;
+    const sw = document.documentElement.scrollWidth;
+    const _sel = (e) => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') +
+      [...e.classList].slice(0,2).map(c => '.' + c).join('');
+    const _counts = (e) => {
+      for (let n = e; n && n !== document.body; n = n.parentElement) {
+        const cs = getComputedStyle(n);
+        if (cs.position === 'fixed') return false;
+        if (n !== e && cs.overflowX !== 'visible') return false;
+      }
+      return true;
+    };
+    const out = [...document.querySelectorAll('body *')].filter(e => {
+      const r = e.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && r.right > vw + 1 && _counts(e);
+    });
+    // the outermost of each case: a wide section drags its children along
+    const outer = out.filter(e => !out.some(o => o !== e && o.contains(e)));
+    const detail = outer.map(e => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e);
+      return { selector: _sel(e), width: Math.round(r.width), left: Math.round(r.left), right: Math.round(r.right),
+        transform: cs.transform !== 'none', text: _txt(e).slice(0,50) };
+    }).sort((a,b) => b.right - a.right);
+    // overflow-x on body reaches the viewport when html leaves it visible; scrollWidth
+    // keeps reporting the wide content even though the visitor can no longer scroll it
+    const ox = { html: getComputedStyle(document.documentElement).overflowX, body: getComputedStyle(document.body).overflowX };
+    const clipped = /hidden|clip/.test(ox.html !== 'visible' ? ox.html : ox.body);
+    return {
+      viewportWidth: vw, scrollWidth: sw, hasHorizontalScroll: sw > vw + 1 && !clipped, excessPx: Math.max(0, sw - vw),
+      overflowX: ox,
+      offenderCount: detail.length, offenders: detail.slice(0,8),
+    };
+  `,
+
+  // ---------- checkup-web: basic form validation ----------
+  // Reads attributes and validity.valueMissing only. Never submits, never calls
+  // checkValidity() (it fires 'invalid' events the page may react to).
+  formValidation: SHARED + `
+    const _label = (e) => {
+      const lab = (e.id && document.querySelector('label[for="' + CSS.escape(e.id) + '"]')) || e.closest('label');
+      return ((lab ? _txt(lab) : '') || e.getAttribute('aria-label') || e.placeholder || '').slice(0,60);
+    };
+    const forms = [...document.querySelectorAll('form')].map(f => {
+      const fields = [...f.querySelectorAll('input,select,textarea')].filter(e =>
+        !/^(hidden|submit|button|reset|image)$/.test(e.type) && e.name !== 'botcheck' && _vis(e) &&
+        e.getBoundingClientRect().width > 0
+      ).map(e => {
+        const label = _label(e);
+        const hint = (e.name + ' ' + e.id + ' ' + label + ' ' + (e.autocomplete||'')).toLowerCase();
+        const kind = e.type === 'email' || /correo|e-?mail/.test(hint) ? 'correo'
+          : e.type === 'tel' || /tel[eé]fono|phone|celular|whatsapp|m[oó]vil|\\btel\\b/.test(hint) ? 'telefono'
+          : e.tagName === 'TEXTAREA' || /mensaje|message|comentario/.test(hint) ? 'mensaje'
+          : 'otro';
+        return {
+          kind, tag: e.tagName.toLowerCase(), type: e.tagName === 'INPUT' ? e.type : null, name: e.name || null, label,
+          required: e.required || e.getAttribute('aria-required') === 'true', labelHasAsterisk: /\\*/.test(label),
+          pattern: e.getAttribute('pattern'), inputmode: e.getAttribute('inputmode'),
+          maxlength: e.maxLength > 0 ? e.maxLength : null, minlength: e.minLength > 0 ? e.minLength : null,
+          emptyNow: !e.value, valueMissing: e.validity ? e.validity.valueMissing : null,
+        };
+      });
+      return {
+        id: f.id || null, action: f.getAttribute('action'), noValidate: f.noValidate, fieldCount: fields.length,
+        // with every field empty, would the BROWSER stop the submit? (JS may still stop it)
+        nativeBlocksEmpty: !f.noValidate && fields.some(x => x.emptyNow && x.valueMissing),
+        fields,
+      };
+    });
+    return { formCount: forms.length, forms };
+  `,
+
   // ---------- helpers used by audit-cdp's capability passes ----------
   hiddenOnReveal: SHARED + `
     const stuck = [...document.querySelectorAll('body *')].filter(e => {

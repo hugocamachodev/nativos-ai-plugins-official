@@ -17,7 +17,8 @@ Cosas que se agregan, no que se mueven. Ninguna rompe un enlace existente.
 únicos · datos estructurados · página 404 · `og:image` · favicon · `lang` en `<html>` ·
 `viewport` · quitar un `noindex` olvidado · `noindex` al paginador · `_headers` con los
 tres headers básicos · `.env` en `.gitignore` · `.assetsignore` cuando el wrangler
-publica la raíz del proyecto.
+publica la raíz del proyecto · `type`, `required` y `maxlength` en los campos del
+formulario · el ancho de lo que se sale de la pantalla en el celular.
 
 ## No se aplica nunca sin decir el costo
 
@@ -214,6 +215,38 @@ ya no dé `200`.
 
 Si ya había un `.env` en git, agregarlo aquí no lo saca del historial: ver la fila de
 claves en la tabla de arriba.
+
+### Formulario — validaciones básicas
+
+```html
+<input type="email" name="email" required maxlength="120" autocomplete="email">
+<input type="tel" name="telefono" inputmode="tel" pattern="[0-9 +()-]{10,20}" maxlength="20" autocomplete="tel">
+<textarea name="mensaje" required maxlength="2000"></textarea>
+```
+
+En JSX tres se escriben distinto: `maxLength`, `inputMode` y `noValidate`. Si el form ya
+trae `noValidate`, no le pongas `pattern` ni `required` esperando que funcionen: valida
+en el `onSubmit`, que es donde ya vive su validación. No le pongas `required` al
+honeypot `botcheck`: tiene que llegar vacío.
+
+### Algo se sale de la pantalla en el celular
+
+Se arregla el elemento que nombra `offenders`, no la página entera. Lo más común:
+
+- **Un ancho fijo** (`width: 600px`, `w-[600px]`): cámbialo por `max-width: 100%` o
+  `w-full max-w-[600px]`.
+- **Una imagen o un video sin tope**: `max-width: 100%; height: auto`.
+- **Una palabra o una URL larguísima**: `overflow-wrap: anywhere` en ese texto.
+- **Una animación de entrada que arranca de lado** (`transform: true` en `offenders`,
+  `initial={{ x: 100 }}` en Framer Motion): ponle `overflow-x: clip` a la sección que la
+  contiene, o haz que entre de abajo en vez de un costado.
+
+**No lo tapes con `overflow-x: hidden` en el `body`.** Esconde el síntoma y el
+contenido se sigue cortando. Si de verdad hace falta recortar, `overflow-x: clip` en la
+sección afectada.
+
+Después del arreglo, vuelve a correr la fase 1.5 y comprueba que `hasHorizontalScroll`
+salga `false`.
 
 ### `og:image`
 

@@ -1,6 +1,6 @@
 ---
 name: checkup-web
-description: Un checkup completo del sitio antes o después de publicarlo. Recorre todas las páginas, entiende el tipo de negocio para no exigir lo que no aplica y reporta lo roto, lo que falta y lo que solo el dueño puede hacer. Revisa lo que rompe sitios de verdad — un noindex olvidado, enlaces muertos, formularios que no mandan nada, "Lorem ipsum" en producción — además de robots.txt, sitemap, página 404, títulos únicos, alt en imágenes, datos estructurados, privacidad y Analytics, y la seguridad básica (claves a la vista, .env, captcha, headers). Si el código está en la carpeta, ofrece arreglar lo seguro. Úsalo siempre que alguien vaya a lanzar un sitio o quiera saber qué le falta — "revisa mi sitio antes de publicarlo", "¿qué me falta antes de lanzar?", "hazle un checkup a mi página", "revisa que no haya links rotos", "¿mi página es segura?" — aunque solo peguen una URL o apunten a una carpeta. NO es para saber por qué una landing no convierte (landing-audit) ni para extraer el contenido de un sitio (web-scrape).
+description: Un checkup completo del sitio antes o después de publicarlo. Recorre todas las páginas, entiende el tipo de negocio para no exigir lo que no aplica y reporta lo roto, lo que falta y lo que solo el dueño puede hacer. Revisa lo que rompe sitios de verdad — un noindex olvidado, enlaces muertos, formularios que no mandan nada, una página que se mueve de lado en el celular, "Lorem ipsum" en producción — además de robots.txt, sitemap, página 404, títulos únicos, alt en imágenes, datos estructurados, validaciones del formulario, privacidad y Analytics, y la seguridad básica (claves a la vista, .env, captcha, headers). Si el código está en la carpeta, ofrece arreglar lo seguro. Úsalo siempre que alguien vaya a lanzar un sitio o quiera saber qué le falta — "revisa mi sitio antes de publicarlo", "¿qué me falta antes de lanzar?", "hazle un checkup a mi página", "revisa que no haya links rotos", "¿mi página es segura?" — aunque solo peguen una URL o apunten a una carpeta. NO es para saber por qué una landing no convierte (landing-audit) ni para extraer el contenido de un sitio (web-scrape).
 ---
 
 > **Rutas:** `${CLAUDE_PLUGIN_ROOT}` apunta a la carpeta del plugin instalado. Nunca uses
@@ -90,10 +90,31 @@ medido es la respuesta correcta.
 El script emite **observaciones, nunca veredictos** — el juicio es tuyo, contra
 `references/checks.md`, para que evidencia y opinión no se suelden en silencio.
 
+**1.5 · Abrir cada página como un celular.** El escaneo lee el HTML pero no dibuja la
+página, así que no ve si algo se sale de la pantalla del celular, y en una SPA tampoco
+ve el formulario. Para eso se abre cada página en Chrome a 375 px de ancho:
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/scripts/audit-cdp.mjs" \
+  --url <url-de-la-pagina> --viewport 375x812 \
+  --dump-html /tmp/checkup/render-1.html > /tmp/checkup/render-1.json
+node -e 'const v=require(process.argv[1]).viewports["375x812"];console.log(JSON.stringify({celular:v.mobileOverflow,formularios:v.formValidation}))' /tmp/checkup/render-1.json
+```
+
+- **La salida entera es enorme**: es el render completo de `landing-audit`. Lee solo
+  esas dos llaves con el `node -e` de arriba (`jq` no viene en Windows).
+- **Una página a la vez**, nunca en paralelo: cada corrida abre su propio Chrome y dos
+  pueden chocar en el puerto. Con más de 10 páginas, la home, las que tienen formulario
+  y una de cada tipo (un artículo, un servicio).
+- **Nunca le des clic a enviar ni dispares el formulario** para ver si valida: le
+  llegaría un mensaje de verdad al dueño. Las dos revisiones solo leen la página.
+- Si sale `no encontré Chrome`, el celular y las validaciones van a no medidos, no a
+  rotos.
+- Es Chrome con la pantalla angosta, no un iPhone. Dilo como "en una pantalla de
+  celular de 375 px".
+
 Si `pages[].signals.looksLikeEmptyShell` sale `true`, el sitio es una SPA y el escaneo
-vio un cascarón vacío. Renderiza cada página con
-`landing-audit/scripts/audit-cdp.mjs --url <url> --dump-html <archivo>` y juzga sobre
-eso; dilo en el reporte.
+vio un cascarón vacío: el HTML de `--dump-html` es lo que vale para juzgar el resto de
+esa página. Dilo en el reporte.
 
 **Y mira `site.notFound.isHomeFallback` antes de tocar el bloque 1.** Un servidor de
 desarrollo —el de `detect-build.mjs` incluido— devuelve la home con código `200` para
@@ -200,7 +221,9 @@ tabla del bloque 1. Tres reglas que no se negocian:
 - **Si una clave secreta ya se publicó, quitarla no basta**: hay que rotarla primero.
 
 En React el formulario no está en el HTML: confirma la protección contra spam en el
-código del formulario (`h-captcha`, `cf-turnstile`, `g-recaptcha`, `botcheck`).
+código del formulario (`h-captcha`, `cf-turnstile`, `g-recaptcha`, `botcheck`). Lo
+mismo con las validaciones: si falta un `required` o el form trae `noValidate`, busca
+en su `onSubmit` antes de acusar, porque muchos formularios de React validan en JS.
 
 **Modo solo-código.** Si no se pudo servir el sitio —dijeron que no a instalar, la
 build falla, es un export que necesita url— haz el checkup leyendo el código.
@@ -234,7 +257,8 @@ la tabla de arriba como mapa. No inventes un HTML para dárselo.
 
 Con eso se puede juzgar casi todo: títulos y descripciones, encabezados, `alt`, datos
 estructurados, `lang`, `og:image`, política de privacidad, etiqueta de analítica,
-`robots.ts` y `sitemap.ts`, y todo lo de la tabla de arriba. Lo que **no**: enlaces rotos en vivo,
+`robots.ts` y `sitemap.ts`, las validaciones del formulario, y todo lo de la tabla de
+arriba. Lo que **no**: si algo se sale de la pantalla en el celular, enlaces rotos en vivo,
 qué código devuelve una ruta inexistente, peso real de las imágenes servidas, HTTPS y
 `www`. Eso va a la tabla de no medidos con su motivo. Abre el reporte diciendo que fue
 una revisión del código y no del sitio funcionando — el lector tiene que saber hasta
@@ -290,6 +314,8 @@ espera el sí. El silencio no es un sí.
 - [ ] Ninguna clave aparece completa en el reporte, y las públicas a propósito no
       salen como hallazgo.
 - [ ] Ninguna pregunta del perfil tenía su respuesta en el escaneo.
+- [ ] Nadie apretó enviar en un formulario para probarlo, y ninguna validación faltante
+      salió como hallazgo sin haber mirado antes el código del formulario, si lo había.
 - [ ] Ningún hallazgo del bloque 1 salió de un servidor con `isHomeFallback: true`.
 - [ ] Si se usó `detect-build.mjs`, se llamó `--stop <url>` —con la url, no a secas— y
       no quedó ningún servidor vivo. El propio `--stop` responde qué detuvo.
