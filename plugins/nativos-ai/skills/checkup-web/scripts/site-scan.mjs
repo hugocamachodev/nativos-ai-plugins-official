@@ -60,11 +60,11 @@ const UA = 'Mozilla/5.0 (compatible; nativos-checkup/1.0)';
 const log = (...a) => console.error('·', ...a);
 
 // ---------- fetch con timeout ----------
-async function get(url, method = 'GET') {
+async function get(url, method = 'GET', redirect = 'follow') {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), TIMEOUT);
   try {
-    const r = await fetch(url, { method, redirect: 'follow', signal: ctl.signal, headers: { 'user-agent': UA } });
+    const r = await fetch(url, { method, redirect, signal: ctl.signal, headers: { 'user-agent': UA } });
     const body = method === 'GET' ? await r.text() : '';
     return { ok: true, status: r.status, url: r.url, body, headers: r.headers };
   } catch (e) {
@@ -245,6 +245,9 @@ function parsePage(url, rawHtml) {
     favicon: !!faviconTag,
     ogImage: metaContent(html, 'og:image'),
     ogTitle: metaContent(html, 'og:title'),
+    ogSiteName: metaContent(html, 'og:site_name'),
+    twitterCard: metaContent(html, 'twitter:card'),
+    twitterImage: metaContent(html, 'twitter:image'),
     headings,
     h1: headings.filter((h) => h.level === 1).map((h) => h.text),
     images,
@@ -346,6 +349,19 @@ async function siteLevel() {
   } else {
     const pu = new URL(publicUrl);
     site.https = pu.protocol === 'https:';
+    // Que la url dada sea https no dice qué pasa si alguien escribe http://. Se pide sin
+    // seguir la redirección para ver si manda a https (301/308) o sirve la página sin candado.
+    if (site.https) {
+      const h = await get('http://' + pu.host + '/', 'GET', 'manual');
+      const location = h.ok ? h.headers.get('location') : null;
+      site.httpVersion = {
+        url: 'http://' + pu.host + '/', status: h.status, location,
+        redirectsToHttps: [301, 302, 303, 307, 308].includes(h.status) && !!location && new URL(location, 'http://' + pu.host).protocol === 'https:',
+        permanent: [301, 308].includes(h.status),
+        servesWithoutHttps: h.status === 200,
+        error: h.error,
+      };
+    }
     const alt = new URL(publicUrl);
     alt.hostname = pu.hostname.startsWith('www.') ? pu.hostname.slice(4) : 'www.' + pu.hostname;
     const r = await get(alt.href, 'HEAD');
@@ -739,6 +755,10 @@ const resumir = (p) => {
     url: p.url, status: p.status, title: p.title, metaDescription: p.metaDescription,
     canonical: p.canonical, h1: p.h1, noindex: p.noindex, robotsMeta: p.robotsMeta,
     lang: p.lang, viewportMeta: p.viewportMeta, favicon: p.favicon, ogImage: p.ogImage,
+    ogSiteName: p.ogSiteName, twitterCard: p.twitterCard, twitterImage: p.twitterImage,
+    // limpiar() borra los null; sin esta lista "no existe" se vería igual que "no lo medí".
+    faltan: ['title', 'metaDescription', 'canonical', 'lang', 'ogImage', 'ogSiteName', 'twitterCard', 'twitterImage']
+      .filter((k) => !p[k]),
     jsonLdTypes: p.jsonLdTypes, placeholders: p.placeholders, brokenAnchors: p.brokenAnchors,
     urlIssues: p.urlIssues, wordCount: p.wordCount, parrafos: p.parrafos, secciones: p.secciones,
     encabezados: p.headings.map((h) => `h${h.level}`).join(' '),
