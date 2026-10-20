@@ -25,22 +25,24 @@ Si no, **pregunta antes**: es la herramienta de Google para medir páginas, ocup
 corridas, una tras otra:
 
 ```bash
-mkdir -p /tmp/mide-velocidad
+d=/tmp/mide-velocidad/$(date +%Y%m%d-%H%M%S); mkdir -p "$d"
 for n in 1 2 3; do
-  npx lighthouse <url> --form-factor=mobile --only-categories=performance \
-    --output=json --output-path=/tmp/mide-velocidad/lh-$n.json --quiet \
+  npx lighthouse "<url>" --form-factor=mobile --only-categories=performance \
+    --output=json --output-path="$d/lh-$n.json" --quiet \
     --chrome-flags="--headless=new"
 done
-for n in 1 2 3; do node "${CLAUDE_PLUGIN_ROOT}/skills/mide-velocidad/scripts/resumen-lighthouse.mjs" /tmp/mide-velocidad/lh-$n.json; done
+for n in 1 2 3; do node "${CLAUDE_PLUGIN_ROOT}/skills/mide-velocidad/scripts/resumen-lighthouse.mjs" "$d/lh-$n.json"; done
 ```
 
 Lo que cambia respecto a chrome-devtools, y se dice en el reporte:
 
+- Qué es lo principal a veces no sale en el resumen (sobre todo en celular): dilo como no
+  medido, no lo adivines.
 - Lighthouse **simula** el celular (un Moto G Power con 4G lenta y el procesador 4 veces
   más lento) y **calcula** los tiempos en lugar de cronometrarlos. Son comparables entre
   sí, no con una medición de chrome-devtools.
 - No hay toque de prueba: la respuesta al tocar va como no medida.
-- No sabe cuándo aparece un 3D ni si se queda dibujando: si la página tiene canvas, corre
+- No sabe cuándo aparece un 3D ni si se queda dibujando: si la página tiene 3D o un canvas que no puedas descartar, corre
   también la prueba sin tarjeta de video de `cuando-truena.md`.
 - El peso por tipo sale de "Lo más pesado". Si necesitas más detalle, búscalo en el JSON
   con `node -e` (el audit `network-requests`), nunca abriéndolo entero.

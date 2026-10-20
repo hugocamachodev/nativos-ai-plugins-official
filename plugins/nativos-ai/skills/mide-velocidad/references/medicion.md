@@ -37,12 +37,14 @@ Los nombres son de las herramientas de chrome-devtools. N es el número de carga
      cargar. Sigue con el paso 5 de todos modos y luego ve a `cuando-truena.md`.
 5. **De inmediato**, `evaluate_script` con `function: "() => window.__mideVelocidadLeer()"`
    y `waitForStableDom: false`. Tarda unos 20 s (más si hay una pantalla de carga) y
-   devuelve el JSON.
+   devuelve el JSON. Si estás en la carpeta del proyecto, `filePath` guarda el JSON en un
+   archivo sin pasarlo por el chat (fuera de esa carpeta la herramienta no puede escribir).
 6. Solo en la carga 1:
    - `performance_stop_trace`. Te da la lista de "insights" de Chrome con sus ahorros
      estimados. Usa el insight set de la navegación (`NAVIGATION_…`), no el de
-     `about:blank`. Los tiempos de la traza cuentan desde que empezó a grabar, un poco
-     antes de navegar: resta el inicio de la navegación antes de citarlos.
+     `about:blank`. El resumen y la mayoría de los insights ya dan los tiempos desde la
+     navegación; algunos (`CLSCulprits`) los dan desde que empezó a grabar. Si un tiempo de
+     la traza no cuadra con lo medido, es eso.
    - `performance_analyze_insight` para `LCPBreakdown` siempre, y para `RenderBlocking`,
      `ImageDelivery`, `NetworkDependencyTree`, `ThirdParties`, `FontDisplay` y
      `DocumentLatency` si aparecen, traigan ahorro o no: `NetworkDependencyTree` da la
@@ -118,32 +120,38 @@ toque en ese momento tendría que esperar a que termine el congelón (hasta `peo
 
 | Campo | Qué es |
 |---|---|
+| `url`, `pantalla` | La dirección que se leyó y el tamaño de pantalla con su densidad (`412x823 dpr 1.75`): si no sale así, el `emulate` no quedó puesto. |
 | `corridaValida`, `motivoInvalida` | `false`: la carga no vale (pestaña oculta o caché). Repítela. |
 | `dibujaCon` | Con qué dibuja el 3D este navegador. Si no nombra una tarjeta de video de verdad (dice SwiftShader, llvmpipe o "sin webgl"), esta medición no tuvo tarjeta: dilo. |
 | `leidaA` | A los cuántos ms se leyó. Si pasa mucho de 20 000, una pantalla de carga hizo esperar. |
 | `noTerminoDeCargar` | `true`: a los 60 s la página todavía no terminaba de cargar. |
+| `htmlInicial` | Lo que manda el servidor antes de que corra el código: cuánto pesa y cuánto texto trae el `<body>`. Con 0 caracteres (o solo unos pocos), la página llega vacía y todo lo pinta el código: esa es la causa de una pantalla vacía larga, y se puede decir aunque no haya carpeta. |
 | `tiempos.respuestaServidor` | Cuánto tardó el servidor en empezar a responder (ms). |
 | `tiempos.primerTexto` | Cuándo apareció algo en la pantalla (FCP). Antes de eso, pantalla vacía. |
 | `tiempos.principal` y `principalEs` | Cuándo apareció lo más grande de la primera pantalla (LCP), y qué es. Si `principalEs` sale `null`, sácalo del insight `LCPBreakdown`. |
+| `tiempos.principalAnimacion` | Si lo principal (o algo que lo contiene) entra con una animación o una transición, y cuánto dura con su retraso. Si lo principal es un texto y llega más de unas 3 décimas después del primer texto, compara esa diferencia con estos `ms`: si cuadran, la animación de entrada es la causa. Para comprobarlo, una carga más, en un contexto aislado con nombre nuevo, con el mismo `emulate` de siempre (viewport, `networkConditions`, `cpuThrottlingRate`) y además `prefersReducedMotion: "reduce"` (si la página la respeta, lo principal sale antes). |
 | `tiempos.primerDibujo3d` | Cuándo se dibujó el primer cuadro de un canvas 3D. LCP no cuenta los canvas: si la estrella de la página es 3D, este es su "cuándo aparece". `null` si no hay 3D. |
 | `tiempos.eventoDeCarga` | El evento de carga del navegador. **No** es "terminó de bajar todo": lo que pide el código después no cuenta. No lo uses en el reporte. |
 | `tiempos.ultimoArchivoTermina` | Cuándo terminó de bajar el último archivo, incluido lo que pidió el código. Esta es la fila «Termina de bajar todo». |
-| `tiempos.quietaDesde` | Desde cuándo la página pasó 5 s seguidos sin tareas largas. `null` si nunca: eso sí es un hallazgo. Para la fila «deja de congelarse» usa `tareasLargas.ultimaTermina`. |
-| `pantallaDeCarga` | Si a los 15 s algo tapaba toda la pantalla (una pantalla de carga, un aviso), qué era y cuándo se quitó (`seDestapa`). "Sigue tapada a los 60 s" suele querer decir que espera un clic (Entrar, Iniciar). Con pantalla de carga, «lo principal» de Google describe esa pantalla y no la página: dilo, y agrega la fila «Se puede usar». |
+| `tiempos.quietaDesde` | El primer momento, después del primer texto, en que la página pasó 5 s seguidos sin tareas largas. Puede salir antes de un congelón tardío (una pantalla de carga que se congela a los 45 s): para la fila «deja de congelarse» usa siempre `tareasLargas.ultimaTermina`. `null` si nunca hubo 5 s quietos: eso sí es un hallazgo. |
+| `pantallaDeCarga` | Si a los 15 s algo tapaba toda la pantalla (una pantalla de carga, un aviso), qué era y qué pasó (`seDestapa`): se quitó sola a los tantos ms, espera un clic en un botón que se puede tocar desde los tantos ms, o seguía a los 60 s (el tope del medidor, no un tiempo de la página). Con pantalla de carga, Chrome puede contar como «lo principal» algo que está debajo y nadie ve: dilo, no lo pongas de titular, y agrega la fila «Se puede usar». Si espera un clic, ese botón es buen candidato para el toque de prueba. |
 | `saltos` | Cuánto se movió la página sola (CLS, sin contar lo que movió el usuario). |
-| `tareasLargas` | Momentos en que la página no puede responder porque está ocupada. `bloqueoMs` es la suma de lo que pasó de 50 ms en cada una; `peorMs` el congelón más largo. |
-| `enReposo` | Los 5 s después de leer. `ocupadoPct` y `tareasLargas` dicen si sigue trabajando; `cadaCuadroP95Ms` cada cuánto sale un cuadro (16 a 17 ms es fluido a 60 Hz, 8 a 9 ms a 120 Hz: `cuadrosPorSeg` solo dice cuál es la pantalla); `dibujos3dPorSeg` cuánto dibuja el 3D aunque nadie toque nada, `cuadros3dPorSeg` cuántos cuadros del 3D salen y `dibujosPorCuadro` cuántas llamadas lleva cada uno (cientos quiere decir muchas piezas dibujadas una por una). `pedidosDeCuadroPorSeg` alto sin 3D y con 0 % ocupada es una animación o un scroll suave que pide cuadros: cuesta casi nada, no es hallazgo. |
+| `tareasLargas` | Momentos en que la página no puede responder porque está ocupada. `bloqueoMs` es la suma de lo que pasó de 50 ms en cada una; `peorMs` el congelón más largo. `total` es cuántas hubo. Para la fila «Deja de congelarse»: si `enReposo.tareasLargas` es mayor que 0, escribe «nunca (seguía congelándose a los 20 s)»; si `total` es 0, «no se congela»; si no, `ultimaTermina`. |
+| `enReposo` | Los 5 s después de leer (`ventanaMs`). `ocupadoPct` y `tareasLargas` dicen si sigue trabajando; `cadaCuadroP95Ms` cada cuánto sale un cuadro (un cuadro cada 16.7 ms es el ritmo de una pantalla de 60 Hz y 8.3 ms el de una de 120; mucho más arriba, la página se traba. Es un dato, no una meta: `cuadrosPorSeg` solo dice cuál es la pantalla); `dibujos3dPorSeg` cuánto dibuja el 3D aunque nadie toque nada, `cuadros3dPorSeg` cuántos cuadros del 3D salen y `dibujosPorCuadro` cuántas llamadas lleva cada uno (cientos quiere decir muchas piezas dibujadas una por una). `pedidosDeCuadroPorSeg` alto sin 3D y con 0 % ocupada es una animación o un scroll suave que pide cuadros: cuesta casi nada, no es hallazgo. |
 | `archivosLentos` | Qué archivo y qué función se comieron el tiempo en los cuadros lentos, con su posición para `mapa-del-codigo.mjs`. |
 | `peso` | Por tipo: `kb` es lo que bajó por la red (comprimido), `kbSinComprimir` lo que el teléfono tuvo que leer, `sinDato` cuántos de otro dominio no dejaron medir su peso. |
 | `archivosSinDato` | Archivos de otro dominio que no dejan medir su peso desde la página. Su peso sale del insight `ThirdParties` de la traza (carga 1); si no lo tienes, di "más lo que no se pudo medir". |
 | `archivosDeCache` | Archivos del mismo dominio que vinieron de la caché. Tiene que ser 0. |
 | `masPesados` | Los 8 archivos más pesados, con cuándo empezaron y terminaron de bajar. |
 | `terceros` | Dominios que no son el de la página, con cuántos archivos y de qué tipo. |
-| `fuentesUsadas` | Las fuentes que la página de verdad usó, con su grosor. Cuenta familias y grosores de aquí, no de `peso.fuentes` (las de otros dominios a veces no tienen extensión). |
+| `hojasCiegas` | Hojas de estilo de otros dominios cargadas sin CORS (Google Fonts, Fontshare, CDN de íconos). Chrome no deja ver lo que piden, así que sus fuentes e imágenes **no** están en `peso`, `terceros` ni `totalKb`. Si hay, el peso de terceros sale del insight `ThirdParties` (carga 1) y se suma al total del reporte, diciendo de dónde salió. |
+| `fuentesUsadas` | Las fuentes que la página de verdad usó, con su grosor. La fila «Fuentes» del reporte cuenta de aquí, no de `peso.fuentes`: las de otros dominios a veces no tienen extensión o no se ven (ver `hojasCiegas`). |
 | `resumenImagenes` | Todas las `<img>`: cuántas hay, cuántas bajaron, cuántas son perezosas, cuántas están lejos de la primera pantalla sin ser perezosas, cuántas sobran 2 veces o más y cuántas no traen medidas. |
+| `imagenesConSobra` | El nombre de cada imagen que sobra 2 veces o más, con cuánto sobra. |
 | `imagenes` | Las 12 `<img>` más pesadas: peso, tamaño real del archivo que eligió el navegador, tamaño en pantalla, `sobra` (cuántas veces más grande de lo que hace falta, ya contando la pantalla nítida del celular), a cuántos px de arriba está, si es `lazy`, si trae varias versiones (`conSrcset`) y si trae medidas. `cargada: false` es una perezosa que todavía no bajó: está bien. |
-| `imagenesSinEtiqueta` | Imágenes que bajaron sin ser `<img>`: fondos de CSS, portadas de video, lo que pone el código. Ojo con la del encabezado: suele estar aquí. |
-| `videos`, `canvas` | Lo mismo para videos y lienzos. |
+| `imagenesSinEtiqueta` | Imágenes que bajaron y no están como `<img>` a la hora de leer: fondos de CSS, portadas de video, lo que pone el código, o `<img>` que un carrusel ya quitó. Ojo con la del encabezado: suele estar aquí. |
+| `videos`, `canvas` | Lo mismo para videos y lienzos. De un video no se sabe cuándo aparece: di solo dónde está y si baja al cargar. |
+| `elementos` | Cuántos elementos tiene la página. Solo importa si pasa de varios miles y la página se traba al bajar. |
 
 Lo que la lectura no ve: archivos que pide un *worker* (algunos visores 3D bajan así sus
 fuentes y modelos). Si Lighthouse o la traza enseñan archivos que no están en `peso`, dilo.
@@ -151,7 +159,8 @@ fuentes y modelos). Si Lighthouse o la traza enseñan archivos que no están en 
 ## Cómo se juntan las tres cargas
 
 - Cada tiempo, peso y conteo: la **mediana** de las tres y el **rango** (el menor y el
-  mayor). Si una carga se fue muy lejos de las otras dos (el doble o más), dilo: algo
+  mayor). La carga 1 lleva la traza grabando y suele salir un poco más lenta: por eso se
+  usa la mediana. Si una carga se fue muy lejos de las otras dos (el doble o más), dilo: algo
   pasó en esa (la red, la computadora).
 - Un hallazgo cuenta si aparece en **al menos dos de las tres**. Uno que sale en una sola
   va, si acaso, como "en una de las tres cargas…".
@@ -161,8 +170,10 @@ fuentes y modelos). Si Lighthouse o la traza enseñan archivos que no están en 
 - **Los ahorros que estiman Chrome y Lighthouse son un tope, no una promesa.** Se calculan
   como si se pudiera quitar todo lo que frena, y a veces no se puede (la hoja de estilos de
   la propia página, por ejemplo). Antes de citar uno, compáralo con lo medido: si promete
-  ahorrar más que el tiempo que quiere mejorar, descártalo. Si dos herramientas estiman
-  distinto, di las dos con su herramienta, o mejor, razona con los tiempos medidos.
+  ahorrar más que el tiempo que quiere mejorar, descártalo. Si lo que frena es una lista de
+  archivos y uno no se puede quitar (la hoja de estilos de la propia página), el ahorro
+  real es como mucho lo que pasa entre que ese archivo llega y el primer pintado. Si dos
+  herramientas estiman distinto, razona con los tiempos medidos y di de dónde sale tu cifra.
 - Los KB salen de dividir entre 1024; para pasar a MB, divide otra vez entre 1024
   (1,781 KB son 1.7 MB).
 - El peso casi no cambia entre cargas. Si cambia mucho, la página baja cosas distintas

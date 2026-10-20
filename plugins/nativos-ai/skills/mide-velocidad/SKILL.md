@@ -31,7 +31,9 @@ sin jerga, la jerga sobra o el hallazgo no vale.
 
 **0 · Qué página.** Tiene que ser un link publicado, con `https://` y un dominio de
 verdad. Si te pasan `localhost`, `127.0.0.1`, una IP de la casa (`192.168.…`, `10.…`) o un
-puerto de desarrollo (`:3000`, `:5173`, `:4321`, `:8080`), **no midas** y explica por qué:
+puerto de desarrollo (`:3000`, `:5173`, `:4321`, `:8080`), y también `0.0.0.0`, `[::1]`,
+`172.16.…` a `172.31.…`, un dominio que termina en `.local`, `.localhost` o `.test`, o un
+túnel hacia su computadora (ngrok, `trycloudflare.com`, `loca.lt`), **no midas** y explica por qué:
 
 > En tu computadora la página no viaja por internet, el código está sin comprimir y tu
 > procesador es mucho más rápido que el de un celular. Cualquier número que saque ahí
@@ -69,11 +71,14 @@ carga deja de ser en frío (el medidor lo detecta).
 **3 · Si truena, se queda trabajando o tiene 3D.** `references/cuando-truena.md`. Tres
 señales lo disparan, y cualquiera basta:
 - la página no terminó de cargar, o la persona dice que PageSpeed no la pudo medir;
-- después de cargar sigue ocupada (`enReposo.ocupadoPct` alto o tareas largas sin parar);
-- tiene un canvas que dibuja 3D sin parar (`enReposo.dibujos3dPorSeg` mayor que 0).
+- después de cargar sigue ocupada (`enReposo.tareasLargas` mayor que 0, o `enReposo.ocupadoPct`
+  de 10 o más);
+- tiene 3D (`tiempos.primerDibujo3d` no es `null`) o dibuja sin parar
+  (`enReposo.dibujos3dPorSeg` mayor que 0).
 
-Si una pantalla de carga tapa la página (`pantallaDeCarga`), lo que Google llama «lo
-principal» es esa pantalla: el reporte dice además cuándo se puede usar la página de verdad.
+Si una pantalla de carga tapa la página (`pantallaDeCarga`), lo que Google cuenta como «lo
+principal» puede ser algo que está debajo y nadie ve, o la propia pantalla: no lo pongas de
+titular y agrega cuándo se puede usar la página de verdad (la fila «Se puede usar»).
 
 Esta computadora tiene tarjeta de video y la medición frena el procesador pero **no la
 tarjeta**. Muchos celulares baratos, y las máquinas de los servicios de medición, dibujan
@@ -85,7 +90,8 @@ las imágenes por su nombre, el código pesado con `scripts/mapa-del-codigo.mjs`
 nada, ni el `dist/`: lo que compiles para medir va a una carpeta temporal.
 
 **5 · Juzgar y ordenar.** Cada hallazgo se queda solo si apareció en al menos dos de las
-tres cargas. Ordénalos por lo que más nota quien visita la página (la escala está en
+tres cargas (excepciones: lo que sale de un insight de la traza y los números «en la raya»
+siguen las reglas de `references/medicion.md` y `references/reporte.md`). Ordénalos por lo que más nota quien visita la página (la escala está en
 `references/reporte.md`), no por categoría técnica. Para cada uno, el arreglo, su
 beneficio y su riesgo salen de `references/arreglos.md`, ajustados a lo que mediste.
 
@@ -95,9 +101,11 @@ Toda cifra pasa por `${CLAUDE_PLUGIN_ROOT}/skills/landing-audit/references/forbi
 **7 · Ofrecer arreglar, sin tocar nada.** Si hay carpeta, termina ofreciendo los arreglos
 de la tabla que recomiendas hacer ya, y espera el sí. El silencio no es un sí. Si dice
 que sí:
-- Los cambios van en una rama aparte, nunca directo en la que se publica.
+- Los cambios van en una rama aparte, nunca directo en la que se publica. Si la carpeta no
+  tiene git, díselo y propón trabajar en una copia de la carpeta; no toques los originales.
 - Por vueltas: primero lo de más beneficio y menos riesgo; cada vuelta se publica en una
-  dirección de prueba (no en la de verdad) y se vuelve a medir con esta skill.
+  dirección de prueba (no en la de verdad), pidiendo el OK antes de cada publicación (qué
+  vas a subir y a dónde), y se vuelve a medir con esta skill.
 - Se sigue mientras haya algo que valga la pena, y la persona decide cuándo se publica de
   verdad.
 - Antes de dar una vuelta por buena, la página se tiene que ver igual que antes en el
@@ -147,12 +155,13 @@ que sí:
 - [ ] Se midió un link publicado, no localhost.
 - [ ] Hubo tres cargas válidas (pestaña al frente) o el reporte dice por qué no.
 - [ ] El reporte dice qué método se usó, qué celular se simuló y que el procesador se
-      frenó pero la tarjeta de video no.
+      frenó pero la tarjeta de video no (o que no la tuvo, según `dibujaCon`).
 - [ ] Están los seis bloques de `reporte.md`, completos y en el chat.
-- [ ] Cada tiempo trae mediana y rango; cada hallazgo se repitió en al menos dos cargas.
+- [ ] Cada tiempo trae mediana y rango (salvo la respuesta al tocar, que es una sola
+      medición y se dice así); cada hallazgo se repitió en al menos dos cargas.
 - [ ] Solo aparecen los tres umbrales oficiales, y ninguna cifra de `forbidden-numbers.md`.
-- [ ] Si hubo canvas que dibuja sin parar, o la página truena, se corrió la prueba sin
-      tarjeta de video, o se dice por qué no.
+- [ ] Si la página tiene 3D, o truena, se corrió la prueba sin tarjeta de video (y la de
+      sin WebGL), o se dice por qué no.
 - [ ] Lo que ya está bien tiene su bloque; en una página rápida no se inventaron problemas.
 - [ ] La tabla de costo-beneficio está ordenada de más mejora con menos riesgo a menos.
 - [ ] Con carpeta, cada problema dice su archivo; sin carpeta, se avisó que con ella se

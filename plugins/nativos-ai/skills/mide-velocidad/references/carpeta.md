@@ -20,7 +20,9 @@ proyecto. Busca al menos una de estas pruebas:
 Si el código coincide pero los nombres con huella no, la carpeta cambió desde la última
 publicación. Dilo: lo que mediste es lo publicado, y el código puede ir adelante.
 
-Si no es la carpeta de esa página, haz el reporte como si solo tuvieras el link.
+Si no es la carpeta de esa página, haz el reporte como si solo tuvieras el link y di en la
+última línea: «La carpeta que tengo abierta no es la de esta página; con la carpeta correcta
+te diría qué archivo causa cada cosa y podría hacer los arreglos.»
 
 ## 2 · Dónde vive cada problema
 
@@ -65,11 +67,10 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/mide-velocidad/scripts/mapa-del-codigo.mjs" \
   no su total.
 - En proyectos de Vite con varias páginas (`rollupOptions.input`), los nombres coinciden
   igual.
-- **Next.js:** `next build` imprime el peso de cada página al terminar; eso alcanza para
-  saber cuál es la pesada. No compiles con otra configuración.
-- **Astro:** también es Vite por dentro, pero se compila con `npx astro build` y su
-  configuración. Si no quieres tocar nada, quédate con el peso de cada archivo que ya viste
-  en la medición.
+- **Next.js:** `next build` escribe en `.next/` y eso cambia el proyecto: no lo corras sin
+  el OK de la persona. Quédate con el peso de cada archivo que viste en la medición.
+- **Astro:** `astro build` escribe en `dist/`: no compiles. Quédate con el peso de cada
+  archivo que viste en la medición.
 - Si la compilación falla, no la arregles: di que no pudiste compilar y sigue con lo que sí
   tienes.
 

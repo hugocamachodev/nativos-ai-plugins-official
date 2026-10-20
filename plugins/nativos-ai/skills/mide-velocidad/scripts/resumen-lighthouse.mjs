@@ -4,12 +4,16 @@
 // Solo lee. El JSON completo pesa medio mega: nunca lo abras entero, usa esto.
 //
 // uso: node resumen-lighthouse.mjs <reporte.json>
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 const ruta = process.argv[2];
 if (!ruta || ruta === '--help') {
   console.log('uso: node resumen-lighthouse.mjs <reporte.json de lighthouse --output=json>');
   process.exit(ruta ? 0 : 1);
+}
+if (!existsSync(ruta)) {
+  console.log(`No hay reporte en ${ruta}: Lighthouse se cayó o lo cortaron antes de terminar. Eso ya es un dato para el reporte.`);
+  process.exit(0);
 }
 const r = JSON.parse(readFileSync(ruta, 'utf8'));
 const a = (id) => r.audits?.[id];
@@ -46,9 +50,8 @@ for (const [id, nombre] of [
 ])
   console.log(`  ${nombre}: ${v(id)}`);
 
-const elemento = a('largest-contentful-paint-element')?.details?.items?.[0]?.items?.[0]?.node?.nodeLabel
-  ?? a('lcp-breakdown-insight')?.details?.items?.find?.((i) => i.type === 'node')?.nodeLabel;
-if (elemento) console.log('  Lo principal es:', String(elemento).replace(/\s+/g, ' ').slice(0, 80));
+const elemento = a('lcp-breakdown-insight')?.details?.items?.find?.((i) => i.type === 'node')?.nodeLabel;
+console.log('  Lo principal es:', elemento ? String(elemento).replace(/\s+/g, ' ').slice(0, 80) : 'Lighthouse no lo dijo (no lo adivines: va como no medido)');
 
 const boot = a('bootup-time')?.details?.items || [];
 if (boot.length) {

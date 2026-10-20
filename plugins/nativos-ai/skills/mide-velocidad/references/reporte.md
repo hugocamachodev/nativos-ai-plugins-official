@@ -15,21 +15,24 @@ rango. <Si hay carpeta: "Revisé también el código de esta carpeta." | Si no: 
 
 Cada medición da números un poco distintos (la red y la computadora nunca están igual), así
 que lo que importa es lo que se repite. La tarjeta de video de esta computadora no se
-frenó: en un celular barato, lo que tenga 3D o animación pesa más de lo que se ve aquí.
+frenó <si `dibujaCon` dice SwiftShader, llvmpipe o «sin webgl», en su lugar: «esta medición
+no tuvo tarjeta de video»>: en un celular barato, lo que tenga 3D o animación pesa más de lo
+que se ve aquí. Las referencias de la tabla son las de Google: él las mide con visitas
+reales, y esto es una prueba de laboratorio, así que son una aproximación.
 
 ### 1 · Lo que tarda en aparecer
 
 | Qué ve la persona | Cuándo | Referencia de Google |
 |---|---|---|
-| Algo en la pantalla (antes, vacía: solo el color de fondo) | 6.1 s (5.9 a 6.2) | — |
+| Algo en la pantalla (antes, vacía: solo el color de fondo) | 6.1 s (5.9 a 6.2) | - |
 | Lo principal: «<qué es>» | 6.1 s (5.9 a 6.2) | 2.5 s o menos |
-| <La escena 3D / el video, si es lo principal y Google no lo cuenta> | 6.7 s | — |
-| <Si hay pantalla de carga> Se puede usar (se quita la pantalla de carga) | 45 s | — |
-| Termina de bajar todo lo de la carga (`ultimoArchivoTermina`) | 8.0 s | — |
-| Deja de congelarse (termina la última tarea larga) | 8.7 s / nunca | — |
+| <La escena 3D, si es lo principal y Google no la cuenta (`primerDibujo3d`)> | 6.7 s | - |
+| <Si hay pantalla de carga> Se puede usar (se quita la pantalla de carga) | 45 s | - |
+| Termina de bajar todo lo de la carga | 8.0 s | - |
+| Deja de congelarse (termina la última tarea larga) | 8.7 s / nunca | - |
 | Saltos de la página | 0.001 | 0.1 o menos |
 | Respuesta al tocar <qué se tocó> | 90 ms / no medida: <motivo> | 200 ms o menos |
-| El servidor empieza a responder | 0.2 s | — |
+| El servidor empieza a responder | 0.2 s | - |
 
 <Una o dos líneas: qué de esto es lo grave. Ej.: "Durante 6 segundos la pantalla está en
 blanco: es lo primero que nota cualquiera."> <Si `dibujos3dPorSeg` es mayor que 0, aclara
@@ -40,13 +43,17 @@ que "deja de congelarse" no quiere decir que descanse: el 3D sigue dibujando.>
 | Tipo | Archivos | Baja por la red | El teléfono lee |
 |---|---|---|---|
 | Imágenes | 3 | 302 KB | 301 KB |
-| Video | 0 | — | — |
+| Video | 0 | - | - |
 | Fuentes | 2 | 54 KB | 53 KB |
 | Código (JavaScript) | 2 | 530 KB | 1.8 MB |
 | Estilos (CSS) | 1 | 19 KB | 71 KB |
-| Página (HTML) | 1 | 2 KB | — |
+| Página (HTML) | 1 | 2 KB | - |
 | <Modelos 3D / Otros, si hay> | | | |
 | **Total** | | **907 KB** | |
+
+Lo que baja por la red es el tamaño comprimido, lo que gasta del plan de datos. Lo que el
+teléfono lee es el tamaño ya abierto: el código pesa mucho más ahí porque el teléfono tiene
+que procesarlo, y eso es lo que más lo frena.
 
 Lo más pesado: <los 3 a 5 archivos más pesados, con su peso y si bajan al cargar o
 después>.
@@ -67,7 +74,7 @@ bloqueada por la política de seguridad), una línea al final: "No es de velocid
 - <Una línea por cosa, con su número si lo tiene: "El servidor responde en 0.2 s",
   "No hay saltos", "Las fuentes son solo dos y ligeras".>
 
-### 5 · Por qué truena <solo si aplica>
+### 5 · Por qué truena <si no aplica, una línea que lo diga>
 
 <Según `cuando-truena.md`: qué dijo PageSpeed o qué pasó, qué hiciste para reproducirlo,
 qué salió, la causa ("comprobado" o "lo más probable") y qué tiene que ver con los
@@ -105,6 +112,13 @@ Un número que ya cumple la referencia de Google no es hallazgo, aunque esté en
 la escala. Si cumple por poco, dilo en el bloque 4 ("cumple, pero justo") y sigue con lo
 que sí frena.
 
+**En la raya.** Si el rango de las tres cargas cruza la referencia (una cumple y otra no),
+no digas ni "cumple" ni "no cumple": di "en la raya", con las tres cifras. Va al bloque 3
+como hallazgo, con la prioridad que le toque por lo que se nota, y su arreglo casi
+siempre es "Después". Cuando un número quede a menos de una décima del umbral (de 2.4 a
+2.6 s, por ejemplo), escríbelo con dos decimales: con uno, 2.46, 2.50 y 2.52 salen todos
+"2.5" y parece que cumple.
+
 ## Una página rápida
 
 Si todo sale bien, el reporte también va completo, con sus seis bloques, y lo dice como
@@ -122,3 +136,4 @@ hallazgo; tampoco lo es un número que ya cumple la referencia de Google.
 - **Ninguna cifra sin pasar por `forbidden-numbers.md`.**
 - **Ningún hallazgo sin su fuente** (qué cargas, qué insight, qué prueba).
 - **Ninguna palabra técnica sin explicar antes qué significa para el visitante.**
+- **Ningún guion largo (—) en el reporte.** Usa coma, punto o dos puntos.

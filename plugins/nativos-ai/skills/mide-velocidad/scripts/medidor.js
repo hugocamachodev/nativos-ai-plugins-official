@@ -92,11 +92,32 @@
     };
     let tapada = tapa();
     const tapadaPor = tapada ? m.describir(tapada) : null;
+    // Muchas pantallas de carga no se quitan solas: esperan un clic en «Entrar» o «Iniciar». Se anota cuándo ese botón
+    // se puede tocar (visible, sin disabled) y ahí se deja de esperar.
+    const botonListo = (el) =>
+      [...el.querySelectorAll('button, [role="button"], a')].find((b) => {
+        const cs = getComputedStyle(b);
+        const r = b.getBoundingClientRect();
+        return !b.disabled && b.getAttribute('aria-disabled') !== 'true' && cs.visibility !== 'hidden' && cs.display !== 'none' && parseFloat(cs.opacity) > 0.5 && cs.pointerEvents !== 'none' && r.width > 20 && r.height > 10;
+      });
+    let boton = null;
+    let botonListoA = null;
     while (tapada && performance.now() < TOPE_TAPADA) {
+      boton = botonListo(tapada);
+      if (boton) {
+        botonListoA = r0(performance.now());
+        break;
+      }
       await dormir(500);
       tapada = tapa();
     }
-    const seDestapa = tapadaPor ? (tapada ? 'sigue tapada a los ' + Math.round(TOPE_TAPADA / 1000) + ' s' : r0(performance.now())) : null;
+    const seDestapa = tapadaPor
+      ? botonListoA !== null
+        ? 'espera un clic en «' + (boton.innerText || boton.getAttribute('aria-label') || '?').trim().slice(0, 30) + '», que se puede tocar desde los ' + botonListoA + ' ms'
+        : tapada
+          ? 'sigue tapada a los ' + Math.round(TOPE_TAPADA / 1000) + ' s (es el tope de espera del medidor, no un tiempo de la página)'
+          : r0(performance.now())
+      : null;
 
     // ¿Descansa? En los próximos 5 s: tareas largas, cuadros que salen a la pantalla, cuadros pedidos y dibujos 3D.
     const antes = { cuadrosPedidos: m.cuadrosPedidos, dibujos3d: m.dibujos3d, cuadros3d: m.cuadros3d };
@@ -182,6 +203,9 @@
         return false;
       }
     };
+    // Lo que sí bajó completo en esta carga: si la misma dirección se pide otra vez (un logo que también es ícono), la
+    // segunda sale de la caché de esta misma visita y eso no quiere decir que el contexto estuviera usado.
+    const bajoCompleto = new Set(recursos.filter((r) => r.transferSize >= r.encodedBodySize && r.transferSize > 0).map((r) => r.name));
     const peso = { html: { n: 1, kb: kb(nav.transferSize || 0) } };
     let sinDato = 0;
     let deCache = 0;
@@ -191,7 +215,8 @@
       p.n++;
       p.kb += kb(r.transferSize);
       p.kbSinComprimir += kb(r.decodedBodySize);
-      if (mismo(r.name) && !r.transferSize && r.decodedBodySize) deCache++;
+      // Caché: 0 bytes por la red, o solo las cabeceras de una revalidación (304) con un cuerpo grande guardado.
+      if (mismo(r.name) && r.decodedBodySize && !bajoCompleto.has(r.name) && (!r.transferSize || (r.transferSize < 1000 && r.encodedBodySize > 4000))) deCache++;
       else if (!mismo(r.name) && !r.transferSize) (sinDato++, p.sinDato++);
     }
     for (const p of Object.values(peso)) (p.kb = Math.round(p.kb)), p.kbSinComprimir != null && (p.kbSinComprimir = Math.round(p.kbSinComprimir));
@@ -216,10 +241,15 @@
       t.kb += kb(r.transferSize);
       t.tipos[tipo(r)] = (t.tipos[tipo(r)] || 0) + 1;
     }
+    // Hojas de estilo de otro dominio cargadas sin CORS: Chrome no deja ver lo que piden (fuentes, imágenes), así que su
+    // peso no está en `peso` ni en `terceros`. Hay que sacarlo del insight ThirdParties de la traza.
+    const hojasCiegas = [...document.querySelectorAll('link[rel~="stylesheet"][href]')]
+      .filter((l) => !mismo(l.href) && !l.crossOrigin)
+      .map((l) => new URL(l.href).host);
     // Las fuentes que de verdad se usaron (las de otros dominios a veces no tienen extensión y caen en "otros").
     let fuentesUsadas = [];
     try {
-      fuentesUsadas = [...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/["']/g, '') + ' ' + f.weight);
+      fuentesUsadas = [...new Set([...document.fonts].filter((f) => f.status === 'loaded').map((f) => f.family.replace(/["']/g, '') + ' ' + f.weight))];
     } catch {}
 
     // Imágenes: el ancho real del archivo se lee abriendo currentSrc aparte (ya está en caché), porque naturalWidth
@@ -268,6 +298,7 @@
       sinMedidas: todas.filter((x) => !x.conMedidas).length,
     };
     const imagenes = todas.sort((a, b) => (b.kb || 0) - (a.kb || 0)).slice(0, 12);
+    const imagenesConSobra = todas.filter((x) => x.sobra >= 2).map((x) => x.url.split('/').pop().slice(0, 60) + ' (' + x.sobra + 'x)').slice(0, 10);
     // Imágenes que bajaron y no son <img>: fondos de CSS, portadas de video, imágenes que pone el código.
     const enImg = new Set(imgs.map((i) => i.currentSrc));
     const imagenesSinEtiqueta = recursos
@@ -287,7 +318,30 @@
       lose && lose.loseContext();
     } catch {}
 
+    // ¿El HTML que manda el servidor ya trae el contenido, o llega vacío y todo lo pinta el código? Se pide otra vez,
+    // ya después de medir, y se cuenta el texto visible que trae el <body> (sin scripts ni estilos).
+    let htmlInicial = null;
+    try {
+      const crudo = await (await fetch(location.href, { cache: 'no-store', credentials: 'omit' })).text();
+      const doc = new DOMParser().parseFromString(crudo, 'text/html');
+      doc.querySelectorAll('script, style, noscript, template').forEach((n) => n.remove());
+      const texto = (doc.body ? doc.body.textContent : '').replace(/\s+/g, ' ').trim();
+      htmlInicial = { kb: kb(crudo.length), caracteresDeTexto: texto.length, empieza: texto.slice(0, 80) || null };
+    } catch {}
     const ultimoLcp = (lcps || []).at(-1);
+    // ¿Lo principal entra con una animación? Si tiene retraso o duración (en él o en sus tres papás), puede ser lo que
+    // separa el primer texto de lo principal.
+    let principalAnimacion = null;
+    for (let el = ultimoLcp && ultimoLcp.element, i = 0; el && el.nodeType === 1 && i < 4; el = el.parentElement, i++) {
+      const cs = getComputedStyle(el);
+      const seg = (v) => Math.max(...v.split(',').map((x) => (x.trim().endsWith('ms') ? parseFloat(x) : parseFloat(x) * 1000) || 0));
+      const anim = cs.animationName !== 'none' ? seg(cs.animationDelay) + seg(cs.animationDuration) : 0;
+      const trans = seg(cs.transitionDelay) + seg(cs.transitionDuration);
+      if (anim || trans) {
+        principalAnimacion = { en: describir(el), animacion: cs.animationName !== 'none' ? cs.animationName : null, ms: Math.round(Math.max(anim, trans)) };
+        break;
+      }
+    }
     const visible = !m.ocultaAlgunaVez && document.visibilityState === 'visible';
     return {
       url: location.href,
@@ -301,6 +355,7 @@
         primerTexto: r0(fcp && fcp.startTime),
         principal: r0(ultimoLcp && ultimoLcp.startTime),
         principalEs: describir(ultimoLcp && ultimoLcp.element) || m.principal || (ultimoLcp && ultimoLcp.url) || null,
+        principalAnimacion,
         primerDibujo3d: r0(m.primerDibujo3d),
         eventoDeCarga: r0(fin),
         ultimoArchivoTermina,
@@ -308,6 +363,7 @@
       },
       pantallaDeCarga: tapadaPor ? { tapadaPor, seDestapa } : null,
       noTerminoDeCargar,
+      htmlInicial,
       saltos: Math.round((saltos || []).filter((s) => !s.hadRecentInput).reduce((a, s) => a + s.value, 0) * 1000) / 1000,
       tareasLargas: {
         total: lt.length,
@@ -320,7 +376,7 @@
         ocupadoPct: Math.round((ocupadoMs / VENTANA) * 100),
         tareasLargas: enVentana.length,
         // Cuadros que llegaron a la pantalla: 60 o 120 según la pantalla, aunque la página no anime nada. Lo que dice si
-        // va pesada es cadaCuadroP95Ms (16 a 17 ms es fluido a 60 Hz; 8 a 9 ms a 120 Hz).
+        // va pesada es cadaCuadroP95Ms (16.7 ms es el ritmo de 60 Hz y 8.3 ms el de 120 Hz).
         cuadrosPorSeg: Math.round((intervalos.length / VENTANA) * 1000),
         cadaCuadroP95Ms: r0(p95),
         pedidosDeCuadroPorSeg: Math.round(((m.cuadrosPedidos - antes.cuadrosPedidos) / VENTANA) * 1000),
@@ -336,9 +392,11 @@
       archivosDeCache: deCache,
       masPesados,
       terceros,
+      hojasCiegas,
       fuentesUsadas,
       resumenImagenes,
       imagenes,
+      imagenesConSobra,
       imagenesSinEtiqueta,
       videos,
       canvas,

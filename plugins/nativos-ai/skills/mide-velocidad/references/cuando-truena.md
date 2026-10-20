@@ -28,7 +28,7 @@ con errores): un error rojo al arrancar suele ser lo que deja la pantalla en bla
 - `ocupadoPct` alto o tareas largas en la ventana: la página nunca descansa. Para
   Lighthouse eso es no terminar nunca.
 - `dibujos3dPorSeg` mayor que 0 con nadie tocando: un 3D que se redibuja sin parar.
-- `cadaCuadroP95Ms` muy arriba de 17 ms: cada cuadro cuesta más de lo que el teléfono
+- `cadaCuadroP95Ms` muy arriba de 16.7 ms (8.3 ms en una pantalla de 120 Hz): cada cuadro cuesta más de lo que el teléfono
   alcanza a dar.
 
 **3 · ¿Es por la tarjeta de video?** La medición con chrome-devtools frena el procesador,
@@ -56,7 +56,7 @@ for equipo in celular; do   # si PageSpeed también falla en escritorio: for equ
   for modo in sin-gpu con-gpu; do
     if [ $modo = sin-gpu ]; then f="--headless=new --disable-gpu --use-angle=swiftshader --enable-unsafe-swiftshader"; else f="--headless=new"; fi
     inicio=$(date +%s)
-    npx lighthouse <url> $forma --throttling-method=devtools --only-categories=performance \
+    npx lighthouse "<url>" $forma --throttling-method=devtools --only-categories=performance \
       --output=json --output-path="$d/$equipo-$modo.json" --quiet --chrome-flags="$f"
     echo "$equipo $modo tardó $(( $(date +%s) - inicio )) s"
     node "${CLAUDE_PLUGIN_ROOT}/skills/mide-velocidad/scripts/resumen-lighthouse.mjs" "$d/$equipo-$modo.json"
@@ -70,17 +70,35 @@ empresa). En muchos sitios hechos con three.js o React Three Fiber, si el 3D fal
 la página entera y queda en blanco. Esta corrida lo dice:
 
 ```bash
-npx lighthouse <url> --form-factor=mobile --only-categories=performance,best-practices \
+d=${d:-/tmp/mide-velocidad/$(date +%Y%m%d-%H%M%S)}; mkdir -p "$d"
+npx lighthouse "<url>" --form-factor=mobile --only-categories=performance,best-practices \
   --output=json --output-path="$d/sin-webgl.json" --quiet --chrome-flags="--headless=new --disable-gpu"
 node "${CLAUDE_PLUGIN_ROOT}/skills/mide-velocidad/scripts/resumen-lighthouse.mjs" "$d/sin-webgl.json"
 ```
 
-Abre con Read la captura final que guarda el resumen. Si se ve el contenido sin el 3D, la
-página sobrevive. Si lo que se ve es una pantalla de carga, esta prueba no alcanza a
+Abre con Read la captura final que guarda el resumen. De esta corrida solo cuentan la
+captura y los errores de la consola: sus tiempos son calculados. Si se ve el contenido sin
+el 3D, la página sobrevive. Si lo que se ve es una pantalla de carga, esta prueba no alcanza a
 contestar: dilo así. Si está en blanco (y el resumen trae errores de WebGL en la consola), es
-un hallazgo del bloque 1 aunque no sea de velocidad: para esas personas la página no
+un hallazgo del bloque 3 (el primero de la lista, porque para esas personas es una pantalla en blanco) aunque no sea de velocidad: para esas personas la página no
 existe. El arreglo es que el 3D falle solo, sin llevarse lo demás (en React, un *error
 boundary* alrededor del lienzo).
+
+Si la página tarda en cargar 40 s o más (una pantalla de carga larga), Lighthouse se corta a
+los 45 s y el resultado engaña: agrega `--max-wait-for-load=90000` a las corridas. Si una
+corrida no deja reporte, el resumen lo dice: Lighthouse se cayó antes de terminar, y eso ya
+es un dato.
+
+**Sin WebGL con la misma herramienta**, cuando hay pantalla de carga o quieres tocar la
+página: una carga más con chrome-devtools en un contexto nuevo, con este `initScript`
+(en lugar del medidor), y `take_screenshot` al final (tocando el botón de la pantalla de
+carga si lo hay):
+
+```js
+for (const C of [HTMLCanvasElement, window.OffscreenCanvas]) if (C) { const o = C.prototype.getContext; C.prototype.getContext = function (t, ...a) { return /webgl/i.test(t) ? null : o.call(this, t, ...a); }; }
+```
+
+Así el navegador se porta como uno que no puede dibujar 3D.
 
 Cada medición va en su propia carpeta con fecha y hora, para no pisar una anterior. Los
 flags de `sin-gpu` hacen que Chrome dibuje con el procesador (SwiftShader), como una
@@ -103,7 +121,19 @@ aviso, cuánto tardó la corrida según tu reloj y la lista de tareas largas, no
   usa Chrome normal en esta computadora; Lighthouse sin ventana a veces cae a SwiftShader
   aunque no se lo pidas. Si de verdad tuvo tarjeta, no es eso: mira la consola, el punto 4
   y el 5.
-- **Las dos terminan normal:** el 3D no es el problema. Sigue con el punto 4.
+- **Las dos terminan, pero sin tarjeta todo tarda mucho más** (el doble o más en «lista
+  para usar» o en el congelón más largo): no se reproduce el error, pero sí el riesgo. Dilo
+  así, con la tabla de las dos corridas, y que en un celular barato se parecerá más a la de
+  sin tarjeta.
+- **Las dos terminan normal y parecido:** el 3D no es el problema. Sigue con el punto 4.
+
+Si no se reproduce nada, puede ser que la persona midió con PageSpeed una versión vieja de
+la página. Pregúntale cuándo lo corrió y sugiérele volver a correrlo ella misma: es su
+decisión mandarle la página a Google.
+
+En una Mac, `--headless=new` usa la tarjeta de video y los flags de SwiftShader la quitan.
+En otras computadoras no está garantizado: si las dos corridas salen casi idénticas en una
+página con 3D, sospecha que las dos dibujaron igual.
 
 Lo mismo sirve para explicar qué pasa en un celular barato: su procesador es lento y su
 tarjeta de video también. Que una computadora potente la mueva bien no dice nada de esos.
@@ -112,7 +142,7 @@ tarjeta de video también. Que una computadora potente la mueva bien no dice nad
 403 o 503:
 
 ```bash
-curl -sS -o /dev/null -w "%{http_code}\n" -A "Mozilla/5.0 (Linux; Android 11; moto g power (2022)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 Chrome-Lighthouse" <url>
+curl -sS -o /dev/null -w "%{http_code}\n" -A "Mozilla/5.0 (Linux; Android 11; moto g power (2022)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 Chrome-Lighthouse" "<url>"
 ```
 
 Un 403 o 503 aquí, con la página abriendo bien en el navegador, es la protección contra
