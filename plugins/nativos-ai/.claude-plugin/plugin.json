@@ -1,7 +1,7 @@
 {
   "name": "nativos-ai",
-  "description": "Skills de Nativos AI: medir qué tan rápido carga tu página en el celular, revisar un sitio completo antes de publicarlo (con su seguridad básica), meterlo a Google paso a paso, auditar una landing page, extraer el contenido de un sitio para rediseñarlo, construir una landing 3D que se anima con el scroll, producir cortometrajes hechos de esferas 3D y planear sitios rápido, por vueltas, viendo resultados pronto.",
-  "version": "0.7.2",
+  "description": "Skills de Nativos AI: medir qué tan rápido carga tu página en el celular, qué la frena y qué arreglar primero, revisar un sitio completo antes de publicarlo (con su seguridad básica), meterlo a Google paso a paso, auditar una landing page, extraer el contenido de un sitio para rediseñarlo, construir una landing 3D que se anima con el scroll, producir cortometrajes hechos de esferas 3D y planear sitios rápido, por vueltas, viendo resultados pronto.",
+  "version": "0.8.0",
   "author": {
     "name": "Hugo Camacho"
   },

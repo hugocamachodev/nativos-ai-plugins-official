@@ -5,6 +5,7 @@
       "args": [
         "-y",
         "chrome-devtools-mcp@1",
+        "--isolated",
         "--no-usage-statistics",
         "--no-performance-crux"
       ]

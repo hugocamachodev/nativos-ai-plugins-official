@@ -18,17 +18,36 @@ Listo. No tienes que descargar nada ni tocar ninguna carpeta.
 
 ### ⏱️ Medir qué tan rápido carga tu página
 
-Claude abre tu página en Chrome como si fuera un celular, la mide por dentro y te dice
-qué tarda en aparecer, cuánto pesan las imágenes y qué la está frenando. Es la herramienta
-del equipo de Chrome ([chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp)),
-y aquí viene con el envío de datos a Google apagado: ni las estadísticas de uso ni la
-dirección de tu página salen de tu computadora. Necesitas tener Google Chrome instalado.
+Mide tu página ya publicada (le pasas el link, no es la de tu computadora) como si la
+abriera un celular con 4G lenta. La carga 3 veces y te dice solo lo que se repite, para
+que no te asustes por un tropiezo de una vez.
+
+Te entrega:
+
+- Qué tarda en aparecer.
+- Cuánto pesa cada cosa: imágenes, video, fuentes y código.
+- Qué la está frenando, ordenado por lo que más nota quien la visita.
+- Lo que ya está bien, para que no toques lo que no hace falta.
+- Una tabla de qué arreglar primero, según cuánto mejora y qué tan riesgoso es.
+
+Si PageSpeed de Google no puede medir tu página, averigua por qué.
+
+Si abres Claude Code en la carpeta de tu proyecto, además te dice qué archivo causa cada
+problema. No cambia nada sin tu OK.
+
+Usa la herramienta del equipo de Chrome
+([chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp)), y aquí
+viene con el envío de datos a Google apagado: ni las estadísticas de uso ni la dirección
+de tu página salen de tu computadora. Necesitas tener Google Chrome instalado. Si tiene
+que usar Lighthouse de respaldo, te pregunta antes de descargarlo.
 
 **Solo díselo con tus palabras:**
 
-> mide qué tan rápido carga mi página en un celular
+> mide qué tan rápido carga mi página en un celular: https://tusitio.com
 >
 > ¿qué está frenando mi página?
+>
+> PageSpeed no puede medir mi página, ¿por qué?
 
 ### 🩺 Checkup de tu sitio antes de publicarlo
 
