@@ -13,12 +13,25 @@ description: Guía paso a paso, con capturas, para meter a Google una página qu
 
 Alguien que ya publicó su página, le conectó un dominio en Cloudflare y nunca ha abierto
 Search Console. No sabe qué es un registro TXT ni tiene por qué saberlo. Cada paso se
-explica en una línea: qué vamos a hacer y por qué le importa.
+explica en una línea: qué vamos a hacer y por qué le importa. Llévalo de la mano, como si
+fuera la primera vez que abre Cloudflare y Google, porque lo es.
 
 ## Cómo se guía
 
-- **Un paso a la vez.** Dices qué abrir, y al final pides: "Mándame una captura de lo
-  que ves". No adelantes el paso siguiente hasta ver la captura.
+- **Al empezar, dile cómo va a ser:** "Yo te voy guiando. Tú picas solo lo que te diga y
+  me mandas una captura de cada pantalla. No verifiques ni guardes nada por tu cuenta."
+  Y cómo se toma la captura: en Mac **Cmd+Shift+4** y arrastrar sobre la pantalla (o
+  **Cmd+Shift+3** para toda); en Windows **Win+Shift+S**. Luego se arrastra o se pega en
+  este chat.
+- **Un paso a la vez.** Dices qué abrir, y al final pides: "No piques nada más. Mándame
+  una captura de lo que ves". No adelantes el paso siguiente hasta ver la captura.
+- **Todo lo que haya que escribir, listo para copiar.** La dirección que se pega en el
+  navegador, el dominio, la URL del sitemap, el nombre de un registro: cada uno en su
+  propio bloque de código, completo. Nunca "escribe tu dominio y luego /sitemap.xml".
+- **Dónde está cada cosa, con su camino completo:** "menú de la izquierda → *Indexación*
+  → **Sitemaps**", no "ve a Sitemaps".
+- **Antes de cada *Save*, *Authorize* o *Verificar*, captura.** Revisas lo que va a pasar
+  y solo entonces le dices que pique.
 - **Con la captura en la mano, di exactamente qué picar**, con el nombre tal como sale
   en *su* pantalla y dónde está. Los nombres de los botones cambian seguido y la
   pantalla puede estar en español o en inglés. Lo que importa es el flujo. Si lo que ves
@@ -51,6 +64,11 @@ Pregunta solo lo que no sepas:
 El dominio tiene que estar administrado por Cloudflare. Si en el panel de Cloudflare no
 aparece el dominio, esto no sigue: primero se conecta.
 
+**Si es un subdominio** (`tienda.minegocio.com`), casi todo es igual, con tres cambios:
+se salta el paso 2.2; los pasos 2.1 y 2.3 son de todo el dominio, así que se revisan pero
+no se cambian sin avisarle; y en el 3.3 el registro TXT lleva de nombre el subdominio
+(`tienda`), no `@`.
+
 ## 1 · Antes de empezar (lo revisas tú)
 
 ```bash
@@ -58,10 +76,15 @@ mkdir -p /tmp/ponla
 node "${CLAUDE_PLUGIN_ROOT}/skills/checkup-web/scripts/site-scan.mjs" \
   --url https://<dominio>/ --max-pages 1 > /tmp/ponla/scan.json 2>/dev/null
 curl -s https://<dominio>/robots.txt | grep -i '^sitemap:'
+curl -s https://<dominio>/ | grep -io '<link rel="canonical"[^>]*>\|og:url"[^>]*>'
 ```
 
 Del escaneo lee `site.sitemap.present`, `site.robotsTxt.present`,
-`site.robotsTxt.sitemapDeclared`, `site.robotsTxt.disallowAll` y `pages[0].noindex`.
+`site.robotsTxt.sitemapDeclared`, `site.robotsTxt.disallowAll`, `pages[0].noindex` y
+`pages[0].canonical`. El canonical tiene que ser `https://<dominio>/`. Si apunta a otro
+dominio (pasa cuando el sitio se copió de otro), Google trata la página como copia de
+aquella y no la indexa. Arréglalo en el código, con su OK, junto con `og:url` y `og:image`,
+y publícalo antes de seguir.
 Usa el escaneo y no un `curl` al sitemap: si el sitio responde todo con la home (modo
 SPA), un `sitemap.xml` que no existe regresa `200` con HTML y parece que sí está. El
 escaneo exige que sea un sitemap de verdad.
@@ -108,7 +131,9 @@ Compruébalo con el segundo `curl` del paso 1: ahora tiene que dar `301` a `http
 
 ### 2.2 · `www` a la raíz
 
-Para que `www.<dominio>` y `<dominio>` no sean dos copias de la misma página.
+Para que `www.<dominio>` y `<dominio>` no sean dos copias de la misma página. En un
+subdominio este paso se salta: la regla `https://www.*` cambiaría todos los `www` del
+dominio, no solo el suyo.
 
 1. **El registro de `www`.** DNS → Records. Pide la captura.
    - Si `www` no tiene registro, se crea: **Add record**, tipo `A`, nombre `www`, IPv4
@@ -132,7 +157,9 @@ punto 1 y vuelve a probar.
 ### 2.3 · Que Cloudflare no le cierre la puerta a Google
 
 Security → Settings → **AI bot policies** (en la doc de Cloudflare sale como *Configure
-AI bot policies*). Pide la captura. Para una página de negocio:
+AI bot policies*). Si no lo encuentra, en la caja de búsqueda de esa pantalla escribe
+`AI bot`. Se abre una ventana con *Search*, *Agent* y *Training*. Pide la captura. Para
+una página de negocio:
 
 - **Search** en *Allow*.
 - **Training** en *Allow* o en *Disallow AI Training*. **Nunca en *Block* ni en *Block
@@ -147,7 +174,8 @@ Si todavía ve el interruptor viejo *Block AI bots* encendido, revisa con él c�
 los crawlers mixtos "will also be blocked by all configurations to block AI training,
 including the legacy 'Block AI bots' option".
 
-Si ya estaba bien, dilo como buena noticia. Si estaba en *Block*, explica por qué se
+Si ya estaba bien, dilo como buena noticia y que cierre con **Cancel**, sin guardar
+nada. Si estaba en *Block*, explica por qué se
 cambia: es la razón más silenciosa por la que una página bien hecha no sale en Google.
 
 ### 2.4 · Apagar `workers.dev`
@@ -183,28 +211,52 @@ Entra a `search.google.com/search-console` con la cuenta de Google **del negocio
 el sitio es de un cliente, es la cuenta del cliente, en su computadora o compartiendo
 pantalla. Nunca con la contraseña del cliente en la tuya.
 
+Antes de añadir nada, que ponga el cursor sobre su foto (arriba a la derecha) y confirme
+la cuenta. Si en la dirección sale `/u/1/` o `/u/2/`, tiene varias cuentas abiertas y
+está en una que no es la primera: vale la pena revisarlo.
+
 ### 3.2 · La propiedad de tipo Dominio
 
-**Añadir propiedad** → **Dominio** → `<dominio>`, sin `https://` y sin `www`. Una propiedad
-de tipo Dominio cubre `www`, sin `www`, `http` y `https` de una vez. Pide la captura de
-la pantalla de verificación.
+Selector de propiedades (arriba a la izquierda) → **Añadir propiedad**. Salen dos cajas:
+la de la izquierda, **Dominio**. Ahí pega el dominio, en un bloque listo para copiar, sin
+`https://` y sin `www`, y pica el **CONTINUAR** de esa caja. Una propiedad de tipo Dominio
+cubre `www`, sin `www`, `http` y `https` de una vez. Pide la captura de la pantalla de
+verificación, sin picar nada en ella.
 
 ### 3.3 · Verificar con DNS
 
-- **Si en la lista de proveedores aparece Cloudflare**, que lo elija y pique **Iniciar
-  verificación** (*Start verification*): inicia sesión en Cloudflare y autoriza. Que aparezca no está
-  confirmado en ninguna fuente, así que no lo prometas antes de ver la captura.
-- **Si no aparece**, que elija **Cualquier proveedor de DNS** (*Any DNS provider*) y
-  copie el registro TXT (empieza con `google-site-verification=`). En Cloudflare: DNS →
-  Records → **Add record**, tipo `TXT`, nombre `@`, y en el contenido el valor completo
-  → Save. Un TXT nunca lleva nube naranja.
+- **Si en *Instrucciones para* ya sale Cloudflare** (Google puede detectarlo solo), que
+  pique **Iniciar verificación** (*Start verification*). Se abre Cloudflare con
+  *Authorize DNS records from Google* y una tabla con el registro que se va a crear.
+  **Antes de *Authorize*, pide la captura** y lee la columna **Name**: tiene que ser el
+  dominio que dio de alta. Si es un subdominio y *Name* muestra el dominio principal,
+  que pique **Cancel** y siga por el camino manual. Cloudflare aclara en esa pantalla que
+  es una autorización de una sola vez, sin permiso para cambios futuros.
+- **Si no sale Cloudflare, o hubo que cancelar**, que cambie el menú *Instrucciones para*
+  a **Cualquier proveedor de DNS** (*Any DNS provider*) y pique **COPIAR** junto al
+  registro TXT (empieza con `google-site-verification=`). No hace falta que te lo mande.
+  En Cloudflare: el dominio → menú de la izquierda **DNS** → **Records** → **Add
+  record**:
+  - Type: `TXT`
+  - Name: `@` (o el subdominio, por ejemplo `tienda`, si la propiedad es un subdominio)
+  - Content: pegar lo copiado
+  - TTL: *Auto*
 
-Antes de que pique **Verificar**, confirma que el registro ya se ve:
+  Pide la captura del formulario antes de *Save*. Arriba Cloudflare escribe en una línea
+  cómo va a quedar el registro: revisa ahí el nombre completo y el valor entero. Un TXT
+  nunca lleva nube naranja.
+
+Antes de que pique **Verificar**, confirma tú que el registro ya se ve, en el servidor de
+Cloudflare y en el DNS público de Google:
 
 ```bash
-dig +short TXT <dominio>
-# en Windows: nslookup -type=TXT <dominio>
+dig +short TXT <dominio> @$(dig +short NS <dominio-principal> | head -1)
+dig +short TXT <dominio> @8.8.8.8
 ```
+
+Dile en simple qué hiciste: "Ya revisé desde fuera que Google puede ver tu registro.
+Ahora sí, pica Verificar." Si sale en Cloudflare pero no en `8.8.8.8`, espera unos minutos
+y vuelve a probar antes de que pique.
 
 Cuando salga el `google-site-verification=...`, que pique **Verificar** (*Verify*). Si falla, es normal
 que tarde: Google dice que un registro manual "can take up to two or three days". Que
@@ -223,16 +275,21 @@ enviar el sitemap y usar la inspección de URLs. El control se queda con el clie
 
 ### 3.5 · Enviar el sitemap
 
-**Sitemaps** → en **Añadir un sitemap** pega `https://<dominio>/sitemap.xml` → **Enviar**.
-Pide la captura del estado. Si dice que no se pudo leer, comprueba tú que el sitemap
+**IR A LA PROPIEDAD** → menú de la izquierda, *Indexación* → **Sitemaps**. En una
+propiedad de tipo Dominio la caja *Añadir un sitemap* sale vacía, sin el inicio de la
+dirección: dale `https://<dominio>/sitemap.xml` completo, en un bloque listo para copiar
+→ **ENVIAR**. Pide la captura del estado. **Correcto** quiere decir que Google pudo leer
+la lista, todavía no que la página salga en Google. Si dice que no se pudo leer, comprueba tú que el sitemap
 abre como XML (el escaneo del paso 1) y que vuelva a ver más tarde. Google dice que "the
 sitemap should be fetched immediately", pero rastrear lo que lista lleva más tiempo.
 
 ### 3.6 · Pedir la indexación, una sola vez
 
-Arriba, en **Inspección de URLs**, pega `https://<dominio>/`. Que pique **Probar URL
-publicada** (*Test live URL*) y, si sale bien, **Solicitar indexación** (*Request
-indexing*). **Una vez.** Google: "requesting a recrawl multiple times for the same URL
+En la barra de arriba (*Inspeccionar las URL de…*) pega `https://<dominio>/` → Enter. En
+una página nueva sale **"La URL no está en Google"**: es normal, díselo antes de que se
+asuste. Que pique **Probar URL publicada** (*Test live URL*, arriba a la derecha), mande
+la captura y, si dice que la URL está disponible para Google, **Solicitar indexación**
+(*Request indexing*). **Una vez.** Google: "requesting a recrawl multiple times for the same URL
 won't get it crawled any faster", y hay un límite diario de solicitudes.
 
 Si la prueba dice que la página no se puede indexar, para. Lee el motivo en la captura
@@ -273,7 +330,8 @@ búsqueda `site:<dominio>` también sirve, pero no siempre muestra todo.
 
 - [ ] `https://<dominio>/` da `200`, `http://<dominio>/` da `301` a `https`, y
       `https://www.<dominio>/` da `301` a la raíz.
-- [ ] El sitemap abre como XML y robots.txt tiene la línea `Sitemap:` con la dirección completa.
+- [ ] El sitemap abre como XML, robots.txt tiene la línea `Sitemap:` con la dirección completa
+      y el canonical apunta a `https://<dominio>/`.
 - [ ] Las políticas de bots: Search en *Allow*, Training sin *Block*. Lo viste en la captura.
 - [ ] `workers.dev` ya no regresa la página, o él decidió dejarlo con su motivo.
 - [ ] Propiedad verificada, sitemap enviado e indexación pedida una vez. Viste las tres capturas.
