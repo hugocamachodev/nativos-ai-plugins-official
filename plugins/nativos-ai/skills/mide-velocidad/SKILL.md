@@ -104,8 +104,11 @@ que sí:
 - Los cambios van en una rama aparte, nunca directo en la que se publica. Si la carpeta no
   tiene git, díselo y propón trabajar en una copia de la carpeta; no toques los originales.
 - Por vueltas: primero lo de más beneficio y menos riesgo; cada vuelta se publica en una
-  dirección de prueba (no en la de verdad), pidiendo el OK antes de cada publicación (qué
-  vas a subir y a dónde), y se vuelve a medir con esta skill.
+  dirección de prueba (no en la de verdad) y se vuelve a medir con esta skill. Antes de la
+  primera, pregunta cómo publicar (Cloudflare directo, una rama en GitHub o que la persona
+  la publique) y pide el OK: los pasos exactos, la sesión de Cloudflare y lo que no se
+  puede publicar así están en `references/publicar-prueba.md`. Siempre la misma dirección
+  de prueba, nunca una nueva por vuelta, y al final la lista de lo que creaste.
 - Se sigue mientras haya algo que valga la pena, y la persona decide cuándo se publica de
   verdad.
 - Antes de dar una vuelta por buena, la página se tiene que ver igual que antes en el
@@ -177,5 +180,6 @@ que sí:
 | `references/cuando-truena.md` | No termina de cargar, PageSpeed falla, se queda trabajando o tiene 3D. |
 | `references/carpeta.md` | Estás en la carpeta del proyecto: qué archivo causa cada cosa. |
 | `references/arreglos.md` | Al armar la tabla de costo-beneficio. |
+| `references/publicar-prueba.md` | Antes de publicar la primera vuelta de arreglos. |
 | `references/reporte.md` | Al escribir el reporte: plantilla, escala y ejemplos. |
 | `landing-audit/references/forbidden-numbers.md` | Antes de que salga cualquier cifra. Siempre. |
