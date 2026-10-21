@@ -3,6 +3,11 @@
 Para medir una vuelta hay que publicarla: en la computadora los números no sirven. Y nunca
 en la dirección de verdad: esa la publica la persona, cuando ella decida.
 
+**La idea: un solo OK y luego todo solo.** La persona autoriza una vez el ciclo completo
+(arreglar, publicar en prueba, medir, repetir y borrar la prueba al final). Después tú das
+las vueltas sin preguntar en cada una, hasta que la página quede bien, y al terminar no le
+dejas nada creado en su cuenta.
+
 ## 1 · Antes de la primera vuelta: cómo se va a publicar
 
 Revisa dos cosas, sin preguntar:
@@ -72,12 +77,14 @@ carpeta temporal, sin dominios ni rutas: así nunca se queda con el dominio de v
 
    Si el proyecto trae `not_found_handling` o `html_handling` dentro de `assets`, cópialos.
    Nada más: ni `routes`, ni `route`, ni dominios.
-5. **El OK, antes de la primera publicación:**
-   > Voy a publicar la vuelta 1 en `https://<nombre>-prueba.<subdominio>.workers.dev`. Tu
-   > página de verdad no cambia. ¿Le doy?
+5. **El OK, una sola vez, antes de la primera publicación:**
+   > Así le voy a hacer: aplico los arreglos, publico cada vuelta en
+   > `https://<nombre>-prueba.<subdominio>.workers.dev`, la mido y sigo con la siguiente
+   > hasta que ya no valga la pena (máximo 5 vueltas). Si un arreglo cambia cómo se ve tu
+   > página, me detengo y te pregunto. Al final borro esa dirección de prueba y te dejo los
+   > arreglos en la rama `<rama>`. Tu página de verdad no cambia. ¿Le doy?
 
-   El silencio no es un sí. Ese OK vale para las siguientes vueltas en la misma dirección;
-   en cada una, avisa en una línea qué cambió antes de publicar.
+   El silencio no es un sí. Con ese OK das todas las vueltas sin volver a preguntar.
 6. **Publica:** `cd "$t" && npx wrangler deploy`. La liga sale al final de lo que imprime.
 7. **Revisa que la de verdad no cambió:** pídela y confirma que trae los mismos archivos
    con huella que en la primera medición (`index-xFrKbF9T.js` y compañía).
@@ -93,12 +100,10 @@ estar conectado a GitHub (Workers Builds) y tener `workers.dev` prendido.
 1. **La rama.** La de los arreglos, siempre la misma en todas las vueltas. Nunca la que
    publica: si no sabes cuál es, pregúntala (está en Cloudflare → el Worker → **Settings** →
    **Build** → **Branch control**).
-2. **El OK, antes del primer envío:**
-   > Voy a subir la rama `<rama>` a GitHub. No es la que publica tu página, así que la de
-   > verdad no cambia: Cloudflare solo arma una vista previa. ¿Le doy?
-
-   Ese OK vale para las siguientes vueltas en la misma rama; en cada una, avisa en una
-   línea qué cambió.
+2. **El OK, una sola vez, antes del primer envío:** el mismo de la opción 1, pero diciendo
+   que subes la rama `<rama>` a GitHub (no es la que publica tu página, así que la de
+   verdad no cambia: Cloudflare solo arma una vista previa) y que al final la borras de
+   GitHub; los arreglos se quedan en la rama de la carpeta.
 3. **Sube:** `git push -u origin <rama>`. Cloudflare tarda uno o dos minutos en compilar.
 4. **La liga.** Búscala en lo que Cloudflare le reporta a GitHub sobre ese commit:
    `gh api repos/<dueño>/<repo>/commits/$(git rev-parse HEAD)/check-runs --jq '.check_runs[] | {name, status, details_url, summary: .output.summary}'`.
@@ -111,21 +116,34 @@ estar conectado a GitHub (Workers Builds) y tener `workers.dev` prendido.
 5. **Revisa que la de verdad no cambió** y **mide la vista previa**, igual que en los
    pasos 7 y 8 de la opción 1.
 
-## 5 · Al terminar
+## 5 · Las vueltas, solas
+
+Con el OK, repite sin preguntar:
+
+1. Aplica el siguiente arreglo de la tabla (de más beneficio y menos riesgo a menos), en la
+   rama `<rama>`, con un commit por vuelta.
+2. Publica en la dirección de prueba (opción 1 u opción 2).
+3. Revisa que se vea igual: captura del celular y de la computadora de la prueba y de la
+   de verdad, lado a lado. Si algo se ve distinto o se rompió, regrésalo y no lo cuentes.
+4. Mide la prueba con esta skill.
+5. Una línea por vuelta: qué cambiaste y cómo quedó lo que más nota quien visita.
+
+Te detienes cuando ya no queda nada que valga la pena, a las 5 vueltas, o cuando el
+siguiente arreglo cambia cómo se ve la página: ese se pregunta.
+
+## 6 · Al terminar: limpia y reporta
+
+1. **Borra la prueba**, sin volver a preguntar (ya estaba en el OK):
+   - Opción 1: `yes | npx wrangler delete <nombre>-prueba`. Confirma que la liga de
+     prueba ya da error.
+   - Opción 2: `git push origin --delete <rama>`.
+   - La carpeta temporal `<t>`.
+2. **No borres la rama local `<rama>`**: ahí están los arreglos.
+3. **Cierra con una tabla** de cómo iba cada vuelta, y con lo que queda:
+   > Borré la dirección de prueba; en tu cuenta de Cloudflare no quedó nada nuevo. Los
+   > arreglos están en la rama `<rama>`. Cuando quieras publicarlos de verdad, dime y los
+   > paso a la rama que publica.
 
 La persona decide cuándo se publica de verdad, y se publica como siempre lo hace (por
 ejemplo, subiendo a la rama que publica Cloudflare). Tú no la publicas sin que te lo pida.
-
-Cierra con la lista de lo que creaste, y ofrece borrarlo:
-
-> Para estas pruebas creé:
-> - la rama `<rama>`, con los arreglos;
-> - la dirección de prueba `https://<nombre>-prueba.<subdominio>.workers.dev` (opción 1)
->   o la rama `<rama>` en GitHub (opción 2);
-> - la carpeta temporal `<t>`.
->
-> ¿Lo borro? Si vas a seguir mejorando la página, conviene dejarlo.
-
-Con su sí: `npx wrangler delete --name <nombre>-prueba` (opción 1) o
-`git push origin --delete <rama>` (opción 2). La rama local solo se borra si ya se publicó
-o si la persona lo pide.
+Si la publica y quiere otra vuelta, el ciclo empieza otra vez con su OK.

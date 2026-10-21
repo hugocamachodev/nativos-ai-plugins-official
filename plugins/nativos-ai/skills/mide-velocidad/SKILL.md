@@ -107,8 +107,8 @@ que sí:
   dirección de prueba (no en la de verdad) y se vuelve a medir con esta skill. Antes de la
   primera, pregunta cómo publicar (Cloudflare directo, una rama en GitHub o que la persona
   la publique) y pide el OK: los pasos exactos, la sesión de Cloudflare y lo que no se
-  puede publicar así están en `references/publicar-prueba.md`. Siempre la misma dirección
-  de prueba, nunca una nueva por vuelta, y al final la lista de lo que creaste.
+  puede publicar así están en `references/publicar-prueba.md`. Con ese único OK das todas
+  las vueltas solo, siempre en la misma dirección de prueba, y al final la borras.
 - Se sigue mientras haya algo que valga la pena, y la persona decide cuándo se publica de
   verdad.
 - Antes de dar una vuelta por buena, la página se tiene que ver igual que antes en el
